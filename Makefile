@@ -8,12 +8,13 @@ DEPLOY_PATH=filur:/opt/public/$(PROJECT)
 # Windows
 
 .PHONY: release-win
-release-win: release/$(FILENAME)-win.zip
+release-win: release/public/$(FILENAME)-win.zip
 
-release/$(FILENAME)-win.zip: release-dir
+release/public/$(FILENAME)-win.zip: release-dir
 	cargo build --release
 	cp target/release/$(PROJECT).exe $(RELEASE_DIR)
-	(cd release && zip -r $(FILENAME)-win.zip $(FILENAME))
+	mkdir -p release/public
+	(cd release && zip -r public/$(FILENAME)-win.zip $(FILENAME))
 
 # Linux
 
@@ -23,7 +24,8 @@ release-linux: release/$(FILENAME)-linux.tar.gz
 release/$(FILENAME)-linux.tar.gz: release-dir
 	cargo build --release
 	cp target/release/$(PROJECT) $(RELEASE_DIR)
-	(cd release && tar czf $(FILENAME)-linux.tar.gz $(FILENAME))
+	mkdir -p release/public
+	(cd release && tar czf public/$(FILENAME)-linux.tar.gz $(FILENAME))
 
 # Common
 
@@ -32,3 +34,7 @@ release-dir:
 	rm -rf $(RELEASE_DIR)
 	mkdir -p $(RELEASE_DIR)
 	rsync -a --delete resources/ $(RELEASE_DIR)/resources/
+
+.PHONY: deploy
+deploy:
+	rsync -avz release/public/* $(DEPLOY_PATH)/
