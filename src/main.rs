@@ -7,7 +7,10 @@ use ggez;
 use ggez::conf;
 use ggez::event;
 use ggez::graphics;
+use ggez::input;
+use ggez::input::keyboard::KeyCode;
 use ggez::nalgebra as na;
+use ggez::timer;
 use ggez::{Context, GameResult};
 
 use std::env;
@@ -16,7 +19,7 @@ use std::path;
 struct MainState {
     image1: graphics::Image,
     circle: graphics::Mesh,
-    pos_x: f32,
+    circle_position: Point2<f32>,
 }
 
 impl MainState {
@@ -35,25 +38,45 @@ impl MainState {
         let s = MainState {
             image1: image1,
             circle: circle,
-            pos_x: 0.0,
+            circle_position: na::Point2::new(0.0, 50.0),
         };
         Ok(s)
     }
 }
 
+impl MainState {
+    fn tick(&mut self, ctx: &mut Context) -> GameResult {
+        const MOVE_SPEED: f32 = 5.0f32;
+        if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+            self.circle_position.x -= MOVE_SPEED;
+        }
+        if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+            self.circle_position.x += MOVE_SPEED;
+        }
+        if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+            self.circle_position.y -= MOVE_SPEED;
+        }
+        if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
+            self.circle_position.y += MOVE_SPEED;
+        }
+        Ok(())
+    }
+}
+
 impl event::EventHandler for MainState {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult {
-        self.pos_x = self.pos_x % 800.0 + 1.0;
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        while timer::check_update_time(ctx, 60) {
+            self.tick(ctx)?;
+        }
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
 
-        graphics::draw(ctx, &self.circle, (na::Point2::new(self.pos_x, 380.0),))?;
+        graphics::draw(ctx, &self.circle, (self.circle_position,))?;
 
-        let dst = Point2::new(20.0, 20.0);
-        graphics::draw(ctx, &self.image1, (dst,))?;
+        graphics::draw(ctx, &self.image1, (na::Point2::new(10.0, 10.0),))?;
 
         graphics::present(ctx)?;
         Ok(())
