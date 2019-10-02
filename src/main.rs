@@ -9,8 +9,8 @@ use ggez::graphics;
 use ggez::nalgebra as na;
 use ggez::{Context, GameResult};
 
-use std::path;
 use std::env;
+use std::path;
 
 struct MainState {
     image1: graphics::Image,
@@ -23,7 +23,7 @@ impl MainState {
 
         let s = MainState {
             image1: image1,
-            pos_x: 0.0
+            pos_x: 0.0,
         };
         Ok(s)
     }
