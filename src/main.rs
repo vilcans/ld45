@@ -15,6 +15,7 @@ use std::path;
 
 struct MainState {
     image1: graphics::Image,
+    circle: graphics::Mesh,
     pos_x: f32,
 }
 
@@ -22,8 +23,18 @@ impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let image1 = graphics::Image::new(ctx, "/ld-logo.png")?;
 
+        let circle = graphics::Mesh::new_circle(
+            ctx,
+            graphics::DrawMode::fill(),
+            na::Point2::new(0.0, 0.0),
+            100.0,
+            2.0,
+            graphics::WHITE,
+        )?;
+
         let s = MainState {
             image1: image1,
+            circle: circle,
             pos_x: 0.0,
         };
         Ok(s)
@@ -39,15 +50,7 @@ impl event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
 
-        let circle = graphics::Mesh::new_circle(
-            ctx,
-            graphics::DrawMode::fill(),
-            na::Point2::new(0.0, 0.0),
-            100.0,
-            2.0,
-            graphics::WHITE,
-        )?;
-        graphics::draw(ctx, &circle, (na::Point2::new(self.pos_x, 380.0),))?;
+        graphics::draw(ctx, &self.circle, (na::Point2::new(self.pos_x, 380.0),))?;
 
         let dst = Point2::new(20.0, 20.0);
         graphics::draw(ctx, &self.image1, (dst,))?;
