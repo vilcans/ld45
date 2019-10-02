@@ -16,6 +16,9 @@ use ggez::{Context, GameResult};
 use std::env;
 use std::path;
 
+const TICKS_PER_SECOND: u32 = 60;
+const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
+
 struct MainState {
     image1: graphics::Image,
     circle: graphics::Mesh,
@@ -46,18 +49,18 @@ impl MainState {
 
 impl MainState {
     fn tick(&mut self, ctx: &mut Context) -> GameResult {
-        const MOVE_SPEED: f32 = 5.0f32;
+        const MOVE_AMOUNT: f32 = 100.0f32 * TICK_TIME;
         if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-            self.circle_position.x -= MOVE_SPEED;
+            self.circle_position.x -= MOVE_AMOUNT;
         }
         if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-            self.circle_position.x += MOVE_SPEED;
+            self.circle_position.x += MOVE_AMOUNT;
         }
         if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            self.circle_position.y -= MOVE_SPEED;
+            self.circle_position.y -= MOVE_AMOUNT;
         }
         if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
-            self.circle_position.y += MOVE_SPEED;
+            self.circle_position.y += MOVE_AMOUNT;
         }
         Ok(())
     }
@@ -65,7 +68,7 @@ impl MainState {
 
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        while timer::check_update_time(ctx, 60) {
+        while timer::check_update_time(ctx, TICKS_PER_SECOND) {
             self.tick(ctx)?;
         }
         Ok(())
