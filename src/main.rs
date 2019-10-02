@@ -4,6 +4,7 @@
 use ggez::nalgebra::Point2;
 
 use ggez;
+use ggez::conf;
 use ggez::event;
 use ggez::graphics;
 use ggez::nalgebra as na;
@@ -65,8 +66,11 @@ pub fn main() -> GameResult {
         path::PathBuf::from("./resources")
     };
 
+    let window_setup = conf::WindowSetup::default().title("Ludum Dare 45");
+
     let builder = ggez::ContextBuilder::new("Ludum Dare 45", "Martin Vilcans")
-        .add_resource_path(resource_dir);
+        .add_resource_path(resource_dir)
+        .window_setup(window_setup);
 
     let (ctx, event_loop) = &mut builder.build()?;
     let state = &mut MainState::new(ctx)?;
