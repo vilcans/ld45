@@ -38,3 +38,8 @@ release-dir:
 .PHONY: deploy
 deploy:
 	rsync -avz release/public/* $(DEPLOY_PATH)/
+
+.PHONY: test
+test:
+	rustfmt --check $$(find src -name '*.rs')
+	cargo test
