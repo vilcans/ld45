@@ -1,9 +1,4 @@
 steps:
-  - label: Test
-    command: make test
-
-  - wait
-
   - label: Package
     command: make release-win
     artifact_paths: 'release/public/*'
