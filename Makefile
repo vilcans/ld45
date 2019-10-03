@@ -48,6 +48,7 @@ release-mac: release/$(FILENAME)-mac.zip
 
 release/$(FILENAME)-mac.zip: release-dir
 	cargo build --release
+	ls -l target/release
 	cp -r target/release/$(PROJECT).app $(RELEASE_DIR)
 	mkdir -p release/public
 	(cd release && zip -r public/$(FILENAME)-win.zip $(FILENAME))
