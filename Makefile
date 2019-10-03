@@ -37,9 +37,20 @@ release-linux: release/$(FILENAME)-linux.tar.gz
 
 release/$(FILENAME)-linux.tar.gz: release-dir
 	cargo build --release
+	ls -l target/release
 	cp target/release/$(PROJECT) $(RELEASE_DIR)
 	mkdir -p release/public
 	(cd release && tar czf public/$(FILENAME)-linux.tar.gz $(FILENAME))
+
+# Mac
+.PHONY: release-mac
+release-mac: release/$(FILENAME)-mac.zip
+
+release/$(FILENAME)-mac.zip: release-dir
+	cargo build --release
+	cp -r target/release/$(PROJECT).app $(RELEASE_DIR)
+	mkdir -p release/public
+	(cd release && zip -r public/$(FILENAME)-win.zip $(FILENAME))
 
 # Common
 
