@@ -1,10 +1,19 @@
 os:
-  - windows
-  - osx
+  - linux
+  #- windows
+  #- osx
 language: rust
 rust:
   - stable
 cache: cargo
 script:
-  #- rustfmt --check src/*.rs
-  - cargo build --release
+  - make release-linux
+deploy:
+  provider: releases
+  file: release/public/*
+  draft: true
+  cleanup: false
+  token:
+    secure: A94xeC2uffGJzHT+xmWyIuD1fTgKgeNC7f/0FJKqDA+6i/LBXCFYwyjikHwF+GjhPgs/BsYrAy3uzt+s1l8HOj8rDQmgw/MDL7ORVWqRZbrsINUupf6Y+O86ps/w3ice+d0p9MQlKIrpBg8g1tw6rUkTZwvo+PKBNZzb+kIesWv0taKAnHB4FIImxE57DKZBaCSs8qNOn0WswMmPXgPnHoLT4W9gRnNGS4gSvxt4No/57G2O1seSYtxm6uTslvNcDQnffiJLQDP+swjtk4Dpbn2GquditkGAAuzxIEqjSaS0b+VwCvhSnOZlliZ0SA/J/iFt/qhzYCjpuZGrVQvdVsORZyCShJM7GfS7aOTn5m3jfh50uvLzFoR4OGOKyDBTHjpy5guQO5SORDoX4L1vRcxFFoiex/zfryuqUWIR5BrI5GNAMOjIFw53/lOHfNdymj41bZFNJvRN36iPiiT6nrGrQqdzKsT7/UbgnIXUnRwj8+eofP1iRhBG0++YJ0GNs5e8aayWeOT5oJvsq1F73J885S1AL6VAKoEIZtaH5wulW7tj6X4BmyVE0VwpNAJjPF73YwSOdBkHczu7Ll38WVXUphRxR6tyUHJXtDixw0fcfrHf9RhhvjZOf3X+e4vEo31XBk2LONw3GC5ubFRcxicGRVFtH/YfZhBbUhBVFwc=
+  on:
+    tags: true
