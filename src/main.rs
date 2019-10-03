@@ -2,6 +2,7 @@
 
 //use cgmath;
 use ggez::nalgebra::Point2;
+use ggez::nalgebra::Vector2;
 
 use ggez;
 use ggez::conf;
@@ -22,6 +23,7 @@ const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 struct MainState {
     image1: graphics::Image,
     circle: graphics::Mesh,
+    velocity: Vector2<f32>,
     circle_position: Point2<f32>,
 }
 
@@ -41,6 +43,7 @@ impl MainState {
         let s = MainState {
             image1: image1,
             circle: circle,
+            velocity: Vector2::new(0.0, 0.0),
             circle_position: na::Point2::new(0.0, 50.0),
         };
         Ok(s)
@@ -48,26 +51,30 @@ impl MainState {
 }
 
 impl MainState {
-    fn tick(&mut self, ctx: &mut Context) -> GameResult {
-        const MOVE_AMOUNT: f32 = 100.0f32 * TICK_TIME;
-        if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-            self.circle_position.x -= MOVE_AMOUNT;
-        }
-        if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-            self.circle_position.x += MOVE_AMOUNT;
-        }
-        if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            self.circle_position.y -= MOVE_AMOUNT;
-        }
-        if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
-            self.circle_position.y += MOVE_AMOUNT;
-        }
+    fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        self.circle_position += self.velocity * TICK_TIME;
         Ok(())
     }
 }
 
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        const MOVE_AMOUNT: f32 = 100.0f32;
+        self.velocity.x = if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+            -MOVE_AMOUNT
+        } else if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+            MOVE_AMOUNT
+        } else {
+            0.0
+        };
+        self.velocity.y = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+            -MOVE_AMOUNT
+        } else if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
+            MOVE_AMOUNT
+        } else {
+            0.0
+        };
+
         while timer::check_update_time(ctx, TICKS_PER_SECOND) {
             self.tick(ctx)?;
         }
