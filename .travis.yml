@@ -1,6 +1,6 @@
 os:
-  #- linux  # fails
-  - windows
+  #- linux  # fails on build
+  #- windows  # fails because make command not found
   - osx
 language: rust
 rust:
