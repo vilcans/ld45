@@ -1,7 +1,7 @@
 os:
-  - linux
-  #- windows
-  #- osx
+  #- linux  # fails
+  - windows
+  - osx
 language: rust
 rust:
   - stable
