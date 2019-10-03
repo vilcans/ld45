@@ -1,12 +1,16 @@
+os:
+  - linux
+  - windows
+  - mac
 language: rust
 rust:
-    - stable
-    - nightly
+  - stable
+  - nightly
 matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
 cache: cargo
 script:
-  - rustfmt --check src/*.rs
+  #- rustfmt --check src/*.rs
   - cargo build --release
