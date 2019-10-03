@@ -9,6 +9,7 @@ cache: cargo
 script:
   - make release
 deploy:
+  edge: true
   provider: releases
   file: release/public/*
   draft: true
