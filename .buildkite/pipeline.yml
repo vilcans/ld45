@@ -1,4 +1,4 @@
 steps:
   - label: Package
-    command: make release-win
+    command: make release
     artifact_paths: 'release/public/*'

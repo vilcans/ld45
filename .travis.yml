@@ -7,7 +7,7 @@ rust:
   - stable
 cache: cargo
 script:
-  - make release-linux
+  - make release
 deploy:
   provider: releases
   file: release/public/*

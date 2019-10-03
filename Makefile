@@ -5,6 +5,20 @@ RELEASE_DIR=release/$(FILENAME)
 
 DEPLOY_PATH=filur:/opt/public/$(PROJECT)
 
+ifeq ($(OS), Windows_NT)
+	PLATFORM := win
+else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		PLATFORM := linux
+	endif
+	ifeq ($(UNAME_S),Darwin)
+		PLATFORM := mac
+	endif
+endif
+
+release: release-$(PLATFORM)
+
 # Windows
 
 .PHONY: release-win
