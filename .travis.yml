@@ -1,5 +1,5 @@
 os:
-  #- linux  # fails on build
+  - linux
   #- windows  # fails because make command not found
   - osx
 language: rust
@@ -7,6 +7,7 @@ rust:
   - stable
 cache: cargo
 script:
+  - sudo apt-get install libasound2-dev libudev-dev pkg-config
   - make release
 deploy:
   edge: true
