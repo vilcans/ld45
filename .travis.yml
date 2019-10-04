@@ -1,13 +1,13 @@
 os:
   - linux
-  #- windows  # fails because make command not found
+  - windows
   - osx
 language: rust
 rust:
   - stable
 cache: cargo
 script:
-  - sudo apt-get install libasound2-dev libudev-dev pkg-config
+  - ./.travis/build.sh
   - make release
 deploy:
   edge: true
