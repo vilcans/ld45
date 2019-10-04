@@ -1,7 +1,8 @@
 #!/bin/bash -e
 
 if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-    sudo apt-get install libasound2-dev libudev-dev pkg-config
+    sudo apt-get update
+    sudo apt-get install -y libasound2-dev libudev-dev pkg-config
 fi
 
 if [ "$TRAVIS_OS_NAME" == 'windows' ]; then
