@@ -20,6 +20,9 @@ endif
 
 all: resources
 
+run: resources
+	cargo run
+
 release: release-$(PLATFORM)
 
 # Windows
