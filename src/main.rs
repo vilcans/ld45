@@ -24,6 +24,11 @@ use std::path;
 const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
+const TURN_SPEED: f32 = 2.5;
+const THRUST: f32 = 120.0;
+const GRAVITY: f32 = 40.0;
+const ENERGY_CONSERVATION: f32 = 0.6;
+
 const SHIP_COLOR: u32 = 0x91e2db;
 
 const VISIBLE_HEIGHT: f32 = 200.0;
@@ -37,6 +42,10 @@ const BACKGROUND_COLOR: u32 = 0x023f3c;
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
+    // Angle in radians, 0 = pointing to the right, pi/2 = pointing up
+    angle: f32,
+    angular_velocity: f32,
+    thrust: f32,
     meshes: Vec<graphics::Mesh>,
 }
 
@@ -58,6 +67,9 @@ impl MainState {
         let ship = Ship {
             position: Point2::new(0.0, 0.0),
             velocity: Vector2::new(0.0, 0.0),
+            angle: std::f32::consts::FRAC_PI_2,
+            angular_velocity: 0.0,
+            thrust: 0.0,
             meshes: ship_meshes,
         };
 
@@ -76,18 +88,16 @@ impl MainState {
 
 impl Ship {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        const MOVE_AMOUNT: f32 = 100.0f32;
-        self.velocity.x = if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-            -MOVE_AMOUNT
-        } else if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-            MOVE_AMOUNT
-        } else {
-            0.0
-        };
-        self.velocity.y = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            MOVE_AMOUNT
-        } else if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
-            -MOVE_AMOUNT
+        self.angular_velocity = 0.0;
+        if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+            self.angular_velocity += TURN_SPEED;
+        }
+        if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+            self.angular_velocity -= TURN_SPEED;
+        }
+
+        self.thrust = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+            THRUST
         } else {
             0.0
         };
@@ -95,6 +105,14 @@ impl Ship {
     }
 
     fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        self.angle =
+            (self.angle + self.angular_velocity * TICK_TIME) % (std::f32::consts::PI * 2.0);
+
+        self.velocity *= ENERGY_CONSERVATION.powf(TICK_TIME);
+        let direction = Vector2::new(self.angle.cos(), self.angle.sin());
+        let mut acceleration = self.thrust * direction;
+        acceleration.y -= GRAVITY;
+        self.velocity += acceleration * TICK_TIME;
         self.position += self.velocity * TICK_TIME;
         Ok(())
     }
@@ -135,7 +153,9 @@ impl event::EventHandler for MainState {
         }
 
         // Draw ship
-        let ship_draw_param = draw_param.dest(self.ship.position);
+        let ship_draw_param = draw_param
+            .dest(self.ship.position)
+            .rotation(self.ship.angle);
         for mesh in &self.ship.meshes {
             graphics::draw(ctx, mesh, ship_draw_param)?;
         }
