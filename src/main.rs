@@ -100,19 +100,18 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() -> GameResult {
-    let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        let mut path = path::PathBuf::from(manifest_dir);
-        path.push("resources");
-        path
+    let mut builder = ggez::ContextBuilder::new("Ludum Dare 45", "Martin Vilcans");
+
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let base = path::PathBuf::from(manifest_dir.clone());
+        builder = builder
+            .add_resource_path(base.join("resources"))
+            .add_resource_path(base.join("gen-resources"));
     } else {
-        path::PathBuf::from("./resources")
-    };
+        builder = builder.add_resource_path("./resources");
+    }
 
-    let window_setup = conf::WindowSetup::default().title("Ludum Dare 45");
-
-    let builder = ggez::ContextBuilder::new("Ludum Dare 45", "Martin Vilcans")
-        .add_resource_path(resource_dir)
-        .window_setup(window_setup);
+    builder = builder.window_setup(conf::WindowSetup::default().title("Ludum Dare 45"));
 
     let (ctx, event_loop) = &mut builder.build()?;
     let state = &mut MainState::new(ctx)?;
