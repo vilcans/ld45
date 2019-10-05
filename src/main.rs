@@ -1,5 +1,8 @@
 #![windows_subsystem = "windows"]
 
+use serde::Deserialize;
+use std::io::Read;
+
 //use cgmath;
 use ggez::nalgebra::Point2;
 use ggez::nalgebra::Vector2;
@@ -7,6 +10,7 @@ use ggez::nalgebra::Vector2;
 use ggez;
 use ggez::conf;
 use ggez::event;
+use ggez::filesystem::File;
 use ggez::graphics;
 use ggez::input;
 use ggez::input::keyboard::KeyCode;
@@ -31,12 +35,13 @@ struct Ship {
 
 struct MainState {
     ship: Ship,
+    world_mesh: graphics::Mesh,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         let ship = Ship {
-            position: Point2::new(50.0, 50.0),
+            position: Point2::new(0.0, 0.0),
             velocity: Vector2::new(0.0, 0.0),
             mesh: graphics::Mesh::new_rectangle(
                 ctx,
@@ -51,7 +56,10 @@ impl MainState {
             )?,
         };
 
-        let s = MainState { ship };
+        let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
+        let world_mesh = load_meshes(ctx, f)?;
+
+        let s = MainState { ship, world_mesh };
         Ok(s)
     }
 }
@@ -67,9 +75,9 @@ impl Ship {
             0.0
         };
         self.velocity.y = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            -MOVE_AMOUNT
-        } else if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
             MOVE_AMOUNT
+        } else if input::keyboard::is_key_pressed(ctx, KeyCode::S) {
+            -MOVE_AMOUNT
         } else {
             0.0
         };
@@ -93,10 +101,57 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
-        graphics::draw(ctx, &self.ship.mesh, (self.ship.position,))?;
+        let camera_position = self.ship.position;
+        //let camera_position = Vector2::new(0.0, 0.0);
+        {
+            let (win_width, win_height) = graphics::drawable_size(ctx);
+            let aspect = if win_height != 0.0 {
+                win_width / win_height
+            } else {
+                1.0
+            };
+            let height = 500.0; // visible meters
+            let width = height * aspect;
+            let mut rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
+            rect.translate(Vector2::new(camera_position.x, camera_position.y));
+            graphics::set_screen_coordinates(ctx, rect)?;
+            println!("camera {:?} rect {:?}", camera_position, rect);
+        }
+
+        let draw_param = graphics::DrawParam::default();
+
+        graphics::draw(ctx, &self.world_mesh, draw_param)?;
+        graphics::draw(ctx, &self.ship.mesh, draw_param.dest(self.ship.position))?;
         graphics::present(ctx)?;
         Ok(())
     }
+}
+
+#[derive(Deserialize, Debug)]
+struct RawMeshes {
+    points: Vec<(f32, f32)>,
+}
+
+fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<graphics::Mesh> {
+    let mut encoded = Vec::<u8>::new();
+    file.read_to_end(&mut encoded).unwrap();
+
+    let raw_meshes: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
+    println!(
+        "Loaded {} points: {:?}",
+        raw_meshes.points.len(),
+        raw_meshes
+    );
+
+    let points: Vec<Point2<f32>> = raw_meshes
+        .points
+        .into_iter()
+        .map(|(x, y)| Point2::new(x, y))
+        .collect();
+    let mesh = graphics::MeshBuilder::new()
+        .line(&points[..], 3.0, graphics::WHITE)?
+        .build(ctx)?;
+    Ok(mesh)
 }
 
 pub fn main() -> GameResult {

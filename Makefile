@@ -7,6 +7,7 @@ DEPLOY_PATH=filur:/opt/public/$(PROJECT)
 
 ifeq ($(OS), Windows_NT)
 	PLATFORM := win
+	BLENDER ?= "C:\\Program\ Files\\Blender\ Foundation\\Blender\\blender.exe"
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Linux)
@@ -17,6 +18,8 @@ else
 	endif
 endif
 
+all: resources
+
 release: release-$(PLATFORM)
 
 # Windows
@@ -24,7 +27,7 @@ release: release-$(PLATFORM)
 .PHONY: release-win
 release-win: release/public/$(FILENAME)-win.zip
 
-release/public/$(FILENAME)-win.zip: release-dir
+release/public/$(FILENAME)-win.zip: resources release-dir
 	cargo build --release
 	cp target/release/$(PROJECT).exe $(RELEASE_DIR)
 	mkdir -p release/public
@@ -68,3 +71,14 @@ deploy:
 test:
 	rustfmt --check $$(find src -name '*.rs')
 	cargo test
+
+# Resources
+
+.PHONY: resources
+resources: gen-resources/mesh.dat
+
+gen-resources:
+	mkdir gen-resources
+
+gen-resources/mesh.dat: source-assets/mesh.blend bin/convert_mesh.py
+	"$(BLENDER)" $< --background --python bin/convert_mesh.py

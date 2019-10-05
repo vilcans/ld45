@@ -4,3 +4,6 @@
 /release
 
 /gen-resources
+
+# Blender backup files
+*.blend?
