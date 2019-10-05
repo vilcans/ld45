@@ -10,7 +10,6 @@ use ggez::event;
 use ggez::graphics;
 use ggez::input;
 use ggez::input::keyboard::KeyCode;
-use ggez::nalgebra as na;
 use ggez::timer;
 use ggez::{Context, GameResult};
 
@@ -20,44 +19,44 @@ use std::path;
 const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
-struct MainState {
-    image1: graphics::Image,
-    circle: graphics::Mesh,
+const SHIP_COLOR: u32 = 0x00ff00;
+const SHIP_WIDTH: f32 = 20.0;
+const SHIP_HEIGHT: f32 = 15.0;
+
+struct Ship {
+    position: Point2<f32>,
     velocity: Vector2<f32>,
-    circle_position: Point2<f32>,
+    mesh: graphics::Mesh,
+}
+
+struct MainState {
+    ship: Ship,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
-        let image1 = graphics::Image::new(ctx, "/ld-logo.png")?;
-
-        let circle = graphics::Mesh::new_circle(
-            ctx,
-            graphics::DrawMode::fill(),
-            na::Point2::new(0.0, 0.0),
-            100.0,
-            2.0,
-            graphics::WHITE,
-        )?;
-
-        let s = MainState {
-            image1: image1,
-            circle: circle,
+        let ship = Ship {
+            position: Point2::new(50.0, 50.0),
             velocity: Vector2::new(0.0, 0.0),
-            circle_position: na::Point2::new(0.0, 50.0),
+            mesh: graphics::Mesh::new_rectangle(
+                ctx,
+                graphics::DrawMode::Stroke(graphics::StrokeOptions::DEFAULT.with_line_width(3.0)),
+                graphics::Rect::new(
+                    -SHIP_WIDTH * 0.5,
+                    -SHIP_HEIGHT * 0.5,
+                    SHIP_WIDTH * 0.5,
+                    SHIP_HEIGHT * 0.5,
+                ),
+                graphics::Color::from_rgb_u32(SHIP_COLOR),
+            )?,
         };
+
+        let s = MainState { ship };
         Ok(s)
     }
 }
 
-impl MainState {
-    fn tick(&mut self, _ctx: &mut Context) -> GameResult {
-        self.circle_position += self.velocity * TICK_TIME;
-        Ok(())
-    }
-}
-
-impl event::EventHandler for MainState {
+impl Ship {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         const MOVE_AMOUNT: f32 = 100.0f32;
         self.velocity.x = if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
@@ -74,20 +73,27 @@ impl event::EventHandler for MainState {
         } else {
             0.0
         };
+        Ok(())
+    }
 
+    fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        self.position += self.velocity * TICK_TIME;
+        Ok(())
+    }
+}
+
+impl event::EventHandler for MainState {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        self.ship.update(ctx)?;
         while timer::check_update_time(ctx, TICKS_PER_SECOND) {
-            self.tick(ctx)?;
+            self.ship.tick(ctx)?;
         }
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
-
-        graphics::draw(ctx, &self.circle, (self.circle_position,))?;
-
-        graphics::draw(ctx, &self.image1, (na::Point2::new(10.0, 10.0),))?;
-
+        graphics::draw(ctx, &self.ship.mesh, (self.ship.position,))?;
         graphics::present(ctx)?;
         Ok(())
     }
