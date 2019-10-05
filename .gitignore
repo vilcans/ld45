@@ -5,5 +5,7 @@
 
 /gen-resources
 
+.vscode/
+
 # Blender backup files
 *.blend?
