@@ -12,6 +12,7 @@ use ggez::conf;
 use ggez::event;
 use ggez::filesystem::File;
 use ggez::graphics;
+use ggez::graphics::Color;
 use ggez::input;
 use ggez::input::keyboard::KeyCode;
 use ggez::timer;
@@ -67,7 +68,12 @@ impl MainState {
         };
 
         let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
-        let level_meshes = load_meshes(ctx, f)?;
+        let level_meshes = load_meshes(
+            ctx,
+            f,
+            Color::from_rgb_u32(FILL_COLOR),
+            Color::from_rgb_u32(WALL_COLOR),
+        )?;
 
         let s = MainState { ship, level_meshes };
         Ok(s)
@@ -143,7 +149,12 @@ struct RawMeshes {
     polygons: Vec<Vec<(f32, f32)>>,
 }
 
-fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Mesh>> {
+fn load_meshes(
+    ctx: &mut Context,
+    mut file: File,
+    fill_color: graphics::Color,
+    line_color: graphics::Color,
+) -> GameResult<Vec<graphics::Mesh>> {
     let mut encoded = Vec::<u8>::new();
     file.read_to_end(&mut encoded).unwrap();
 
@@ -160,7 +171,7 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
             .polygon(
                 graphics::DrawMode::Fill(graphics::FillOptions::default()),
                 &points[..],
-                graphics::Color::from_rgb_u32(FILL_COLOR),
+                fill_color,
             )?
             .build(ctx)?;
         meshes.push(filled_mesh);
@@ -171,7 +182,7 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
                     graphics::StrokeOptions::default().with_line_width(STROKE_WIDTH),
                 ),
                 &points[..],
-                graphics::Color::from_rgb_u32(WALL_COLOR),
+                line_color,
             )?
             .build(ctx)?;
 
