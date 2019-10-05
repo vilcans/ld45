@@ -9,11 +9,13 @@ from mathutils import *
 from math import *
 
 
-def convert(objects, exclude):
+def convert(objects, *, include, exclude):
     polygons = []
 
     for obj in objects:
         if obj.type != 'MESH':
+            continue
+        if include is not None and obj.name not in include:
             continue
         if obj.name in exclude:
             continue
@@ -50,19 +52,24 @@ def main(args):
         description='Convert meshes'
     )
     parser.add_argument(
+        'out',
+        help='Save mesh data to this file'
+    )
+    parser.add_argument(
         '--exclude', nargs='*', default=[],
         help='Exclude object with this name'
     )
+    parser.add_argument(
+        '--include', nargs='*', default=None,
+        help='Include only objects with these names'
+    )
     args = parser.parse_args(args=args)
 
-    input_filename = D.filepath
-    out_filename = input_filename.replace(
-        'source-assets', 'gen-resources').replace('.blend', '.dat')
+    polygons = convert(C.scene.objects, exclude=args.exclude,
+                       include=args.include)
 
-    polygons = convert(C.scene.objects, exclude=args.exclude)
-
-    with open(out_filename, 'wb') as out:
-        print('Writing', out_filename)
+    with open(args.out, 'wb') as out:
+        print('Writing', args.out)
         export(polygons, out)
 
 

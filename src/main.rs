@@ -25,8 +25,6 @@ const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
 const SHIP_COLOR: u32 = 0x91e2db;
-const SHIP_WIDTH: f32 = 20.0;
-const SHIP_HEIGHT: f32 = 15.0;
 
 const VISIBLE_HEIGHT: f32 = 200.0;
 
@@ -39,7 +37,7 @@ const BACKGROUND_COLOR: u32 = 0x023f3c;
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
-    mesh: graphics::Mesh,
+    meshes: Vec<graphics::Mesh>,
 }
 
 struct MainState {
@@ -49,22 +47,18 @@ struct MainState {
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
+        let f = ggez::filesystem::open(ctx, "/ship.dat")?;
+        let ship_meshes = load_meshes(
+            ctx,
+            f,
+            Color::from_rgb_u32(FILL_COLOR),
+            Color::from_rgb_u32(SHIP_COLOR),
+        )?;
+
         let ship = Ship {
             position: Point2::new(0.0, 0.0),
             velocity: Vector2::new(0.0, 0.0),
-            mesh: graphics::Mesh::new_rectangle(
-                ctx,
-                graphics::DrawMode::Stroke(
-                    graphics::StrokeOptions::DEFAULT.with_line_width(STROKE_WIDTH),
-                ),
-                graphics::Rect::new(
-                    -SHIP_WIDTH * 0.5,
-                    -SHIP_HEIGHT * 0.5,
-                    SHIP_WIDTH * 0.5,
-                    SHIP_HEIGHT * 0.5,
-                ),
-                graphics::Color::from_rgb_u32(SHIP_COLOR),
-            )?,
+            meshes: ship_meshes,
         };
 
         let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
@@ -135,10 +129,17 @@ impl event::EventHandler for MainState {
 
         let draw_param = graphics::DrawParam::default();
 
+        // Draw level
         for mesh in &self.level_meshes {
             graphics::draw(ctx, mesh, draw_param)?;
         }
-        graphics::draw(ctx, &self.ship.mesh, draw_param.dest(self.ship.position))?;
+
+        // Draw ship
+        let ship_draw_param = draw_param.dest(self.ship.position);
+        for mesh in &self.ship.meshes {
+            graphics::draw(ctx, mesh, ship_draw_param)?;
+        }
+
         graphics::present(ctx)?;
         Ok(())
     }
