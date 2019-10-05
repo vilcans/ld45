@@ -61,10 +61,11 @@ release/$(FILENAME)-mac.zip: release-dir
 # Common
 
 .PHONY: release-dir
-release-dir:
+release-dir: resources
 	rm -rf $(RELEASE_DIR)
 	mkdir -p $(RELEASE_DIR)
-	rsync -a --delete resources/ $(RELEASE_DIR)/resources/
+	rsync -a gen-resources/ $(RELEASE_DIR)/resources/
+	rsync -a resources/ $(RELEASE_DIR)/resources/
 
 .PHONY: deploy
 deploy:
