@@ -79,7 +79,7 @@ test:
 # Resources
 
 .PHONY: resources
-resources: \
+resources: gen-resources \
 	gen-resources/mesh.dat \
 	gen-resources/ship.dat
 
