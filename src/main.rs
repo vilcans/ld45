@@ -115,7 +115,6 @@ impl event::EventHandler for MainState {
             let mut rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
             rect.translate(Vector2::new(camera_position.x, camera_position.y));
             graphics::set_screen_coordinates(ctx, rect)?;
-            println!("camera {:?} rect {:?}", camera_position, rect);
         }
 
         let draw_param = graphics::DrawParam::default();
@@ -139,11 +138,6 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
     file.read_to_end(&mut encoded).unwrap();
 
     let raw_meshes: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
-    println!(
-        "Loaded {} polygons: {:?}",
-        raw_meshes.polygons.len(),
-        raw_meshes
-    );
 
     let mut meshes = Vec::<graphics::Mesh>::new();
     for polygon in raw_meshes.polygons {
