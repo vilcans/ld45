@@ -147,14 +147,30 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
             .iter()
             .map(|(x, y)| Point2::<f32>::new(*x, *y))
             .collect();
-        let mesh = graphics::MeshBuilder::new()
+
+        let filled_mesh = graphics::MeshBuilder::new()
             .polygon(
-                graphics::DrawMode::Stroke(graphics::StrokeOptions::default().with_line_width(5.0)),
+                graphics::DrawMode::Fill(graphics::FillOptions::default()),
+                &points[..],
+                graphics::Color {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            )?
+            .build(ctx)?;
+        meshes.push(filled_mesh);
+
+        let wall_mesh = graphics::MeshBuilder::new()
+            .polygon(
+                graphics::DrawMode::Stroke(graphics::StrokeOptions::default().with_line_width(3.0)),
                 &points[..],
                 graphics::WHITE,
             )?
             .build(ctx)?;
-        meshes.push(mesh);
+
+        meshes.push(wall_mesh);
     }
 
     Ok(meshes)
