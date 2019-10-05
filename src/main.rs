@@ -29,6 +29,8 @@ const SHIP_HEIGHT: f32 = 15.0;
 
 const VISIBLE_HEIGHT: f32 = 200.0;
 
+const STROKE_WIDTH: f32 = 1.0;
+
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
@@ -47,7 +49,9 @@ impl MainState {
             velocity: Vector2::new(0.0, 0.0),
             mesh: graphics::Mesh::new_rectangle(
                 ctx,
-                graphics::DrawMode::Stroke(graphics::StrokeOptions::DEFAULT.with_line_width(3.0)),
+                graphics::DrawMode::Stroke(
+                    graphics::StrokeOptions::DEFAULT.with_line_width(STROKE_WIDTH),
+                ),
                 graphics::Rect::new(
                     -SHIP_WIDTH * 0.5,
                     -SHIP_HEIGHT * 0.5,
@@ -164,7 +168,9 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
 
         let wall_mesh = graphics::MeshBuilder::new()
             .polygon(
-                graphics::DrawMode::Stroke(graphics::StrokeOptions::default().with_line_width(3.0)),
+                graphics::DrawMode::Stroke(
+                    graphics::StrokeOptions::default().with_line_width(STROKE_WIDTH),
+                ),
                 &points[..],
                 graphics::WHITE,
             )?
