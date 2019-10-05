@@ -27,6 +27,8 @@ const SHIP_COLOR: u32 = 0x00ff00;
 const SHIP_WIDTH: f32 = 20.0;
 const SHIP_HEIGHT: f32 = 15.0;
 
+const VISIBLE_HEIGHT: f32 = 200.0;
+
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
@@ -110,7 +112,7 @@ impl event::EventHandler for MainState {
             } else {
                 1.0
             };
-            let height = 500.0; // visible meters
+            let height = VISIBLE_HEIGHT;
             let width = height * aspect;
             let mut rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
             rect.translate(Vector2::new(camera_position.x, camera_position.y));
