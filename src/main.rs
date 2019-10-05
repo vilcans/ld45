@@ -152,7 +152,11 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
             .map(|(x, y)| Point2::<f32>::new(*x, *y))
             .collect();
         let mesh = graphics::MeshBuilder::new()
-            .line(&points[..], 3.0, graphics::WHITE)?
+            .polygon(
+                graphics::DrawMode::Stroke(graphics::StrokeOptions::default().with_line_width(5.0)),
+                &points[..],
+                graphics::WHITE,
+            )?
             .build(ctx)?;
         meshes.push(mesh);
     }
