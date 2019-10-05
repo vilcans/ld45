@@ -35,7 +35,7 @@ struct Ship {
 
 struct MainState {
     ship: Ship,
-    world_mesh: graphics::Mesh,
+    level_meshes: Vec<graphics::Mesh>,
 }
 
 impl MainState {
@@ -57,9 +57,9 @@ impl MainState {
         };
 
         let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
-        let world_mesh = load_meshes(ctx, f)?;
+        let level_meshes = load_meshes(ctx, f)?;
 
-        let s = MainState { ship, world_mesh };
+        let s = MainState { ship, level_meshes };
         Ok(s)
     }
 }
@@ -120,7 +120,9 @@ impl event::EventHandler for MainState {
 
         let draw_param = graphics::DrawParam::default();
 
-        graphics::draw(ctx, &self.world_mesh, draw_param)?;
+        for mesh in &self.level_meshes {
+            graphics::draw(ctx, mesh, draw_param)?;
+        }
         graphics::draw(ctx, &self.ship.mesh, draw_param.dest(self.ship.position))?;
         graphics::present(ctx)?;
         Ok(())
@@ -129,29 +131,33 @@ impl event::EventHandler for MainState {
 
 #[derive(Deserialize, Debug)]
 struct RawMeshes {
-    points: Vec<(f32, f32)>,
+    polygons: Vec<Vec<(f32, f32)>>,
 }
 
-fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<graphics::Mesh> {
+fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Mesh>> {
     let mut encoded = Vec::<u8>::new();
     file.read_to_end(&mut encoded).unwrap();
 
     let raw_meshes: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
     println!(
-        "Loaded {} points: {:?}",
-        raw_meshes.points.len(),
+        "Loaded {} polygons: {:?}",
+        raw_meshes.polygons.len(),
         raw_meshes
     );
 
-    let points: Vec<Point2<f32>> = raw_meshes
-        .points
-        .into_iter()
-        .map(|(x, y)| Point2::new(x, y))
-        .collect();
-    let mesh = graphics::MeshBuilder::new()
-        .line(&points[..], 3.0, graphics::WHITE)?
-        .build(ctx)?;
-    Ok(mesh)
+    let mut meshes = Vec::<graphics::Mesh>::new();
+    for polygon in raw_meshes.polygons {
+        let points: Vec<Point2<f32>> = polygon
+            .iter()
+            .map(|(x, y)| Point2::<f32>::new(*x, *y))
+            .collect();
+        let mesh = graphics::MeshBuilder::new()
+            .line(&points[..], 3.0, graphics::WHITE)?
+            .build(ctx)?;
+        meshes.push(mesh);
+    }
+
+    Ok(meshes)
 }
 
 pub fn main() -> GameResult {

@@ -8,7 +8,9 @@ from mathutils import *
 from math import *
 
 
-def export(objects, out):
+def convert(objects):
+    polygons = []
+
     for obj in objects:
         if obj.type != 'MESH':
             continue
@@ -22,22 +24,30 @@ def export(objects, out):
             vertices = []
 
             for loop_index in poly.loop_indices:
-                vertices.append(
-                    mesh.vertices[mesh.loops[loop_index].vertex_index])
+                v = mat @ mesh.vertices[mesh.loops[loop_index].vertex_index].co
+                vertices.append(v)
 
-            # Write number of floating point values
-            # bincode uses 64 bit values for vector length
-            out.write(struct.pack('<II', len(vertices), 0))
+            polygons.append(vertices)
 
-            for v in vertices:
-                v = mat @ v.co
-                out.write(struct.pack('ff', v[0], v[2]))
+    return polygons
+
+
+def export(polygons, out):
+    # bincode uses 64 bit values for vector length
+    out.write(struct.pack('<II', len(polygons), 0))
+    for polygon in polygons:
+        vertices = polygon
+        out.write(struct.pack('<II', len(vertices), 0))
+        for v in vertices:
+            out.write(struct.pack('ff', v[0], v[2]))
 
 
 input_filename = D.filepath
 out_filename = D.filepath.replace(
     'source-assets', 'gen-resources').replace('.blend', '.dat')
 
+polygons = convert(C.scene.objects)
+
 with open(out_filename, 'wb') as out:
     print('Writing', out_filename)
-    export(C.scene.objects, out)
+    export(polygons, out)
