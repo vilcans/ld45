@@ -23,13 +23,17 @@ use std::path;
 const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
-const SHIP_COLOR: u32 = 0x00ff00;
+const SHIP_COLOR: u32 = 0x91e2db;
 const SHIP_WIDTH: f32 = 20.0;
 const SHIP_HEIGHT: f32 = 15.0;
 
 const VISIBLE_HEIGHT: f32 = 200.0;
 
 const STROKE_WIDTH: f32 = 1.0;
+
+const FILL_COLOR: u32 = 0x000000;
+const WALL_COLOR: u32 = 0x2ca693;
+const BACKGROUND_COLOR: u32 = 0x023f3c;
 
 struct Ship {
     position: Point2<f32>,
@@ -106,7 +110,7 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        graphics::clear(ctx, [0.1, 0.2, 0.3, 1.0].into());
+        graphics::clear(ctx, graphics::Color::from_rgb_u32(BACKGROUND_COLOR));
         let camera_position = self.ship.position;
         //let camera_position = Vector2::new(0.0, 0.0);
         {
@@ -156,12 +160,7 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
             .polygon(
                 graphics::DrawMode::Fill(graphics::FillOptions::default()),
                 &points[..],
-                graphics::Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 1.0,
-                    a: 1.0,
-                },
+                graphics::Color::from_rgb_u32(FILL_COLOR),
             )?
             .build(ctx)?;
         meshes.push(filled_mesh);
@@ -172,7 +171,7 @@ fn load_meshes(ctx: &mut Context, mut file: File) -> GameResult<Vec<graphics::Me
                     graphics::StrokeOptions::default().with_line_width(STROKE_WIDTH),
                 ),
                 &points[..],
-                graphics::WHITE,
+                graphics::Color::from_rgb_u32(WALL_COLOR),
             )?
             .build(ctx)?;
 
