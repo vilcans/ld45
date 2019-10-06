@@ -263,6 +263,7 @@ struct MainState {
     _ambient: audio::Source,
     ping: audio::Source,
     thrust_sound: audio::Source,
+    explosion_sound: audio::Source,
 }
 
 impl MainState {
@@ -276,6 +277,7 @@ impl MainState {
         let mut thrust_sound = audio::Source::new(ctx, "/thrust.wav").unwrap();
         thrust_sound.set_volume(0.0);
         thrust_sound.set_repeat(true);
+        let explosion_sound = audio::Source::new(ctx, "/explosion.ogg").unwrap();
 
         // Text
 
@@ -318,6 +320,7 @@ impl MainState {
             _ambient: ambient,
             ping,
             thrust_sound,
+            explosion_sound,
         })
     }
 
@@ -351,6 +354,7 @@ impl MainState {
 
                 if collided {
                     self.ship.alive = false;
+                    let _ = self.explosion_sound.play();
                 } else {
                     for (&trigger_id, trigger) in level.triggers.iter() {
                         if trigger.min_x <= self.ship.position.x
