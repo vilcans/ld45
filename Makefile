@@ -21,7 +21,7 @@ endif
 all: resources
 
 run: resources
-	cargo run
+	cargo run -- $(LEVEL)
 
 release: release-$(PLATFORM)
 
