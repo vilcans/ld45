@@ -84,7 +84,7 @@ resources: gen-resources \
 	gen-resources/ship.dat
 
 gen-resources:
-	mkdir gen-resources
+	mkdir -p gen-resources
 
 gen-resources/mesh.dat: source-assets/mesh.blend bin/convert_mesh.py
 	rm -f $@
