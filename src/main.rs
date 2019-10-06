@@ -65,6 +65,42 @@ struct Ship {
     alive: bool,
 }
 
+impl Ship {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        self.angular_velocity = 0.0;
+        self.thrust = 0.0;
+
+        if self.alive {
+            if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+                self.angular_velocity += TURN_SPEED;
+            }
+            if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+                self.angular_velocity -= TURN_SPEED;
+            }
+            if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+                self.thrust = THRUST;
+            }
+        }
+        Ok(())
+    }
+
+    fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        if !self.alive {
+            return Ok(());
+        }
+        self.angle =
+            (self.angle + self.angular_velocity * TICK_TIME) % (std::f32::consts::PI * 2.0);
+
+        self.velocity *= ENERGY_CONSERVATION.powf(TICK_TIME);
+        let direction = Vector2::new(self.angle.cos(), self.angle.sin());
+        let mut acceleration = self.thrust * direction;
+        acceleration.y -= GRAVITY;
+        self.velocity += acceleration * TICK_TIME;
+        self.position += self.velocity * TICK_TIME;
+        Ok(())
+    }
+}
+
 struct MainState {
     ship: Ship,
     level_meshes: Vec<graphics::Mesh>,
@@ -212,42 +248,6 @@ impl MainState {
         text.set_font(self.font, graphics::Scale::uniform(40.0));
         self.ui_text = Some(text);
 
-        Ok(())
-    }
-}
-
-impl Ship {
-    fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.angular_velocity = 0.0;
-        self.thrust = 0.0;
-
-        if self.alive {
-            if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-                self.angular_velocity += TURN_SPEED;
-            }
-            if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-                self.angular_velocity -= TURN_SPEED;
-            }
-            if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-                self.thrust = THRUST;
-            }
-        }
-        Ok(())
-    }
-
-    fn tick(&mut self, _ctx: &mut Context) -> GameResult {
-        if !self.alive {
-            return Ok(());
-        }
-        self.angle =
-            (self.angle + self.angular_velocity * TICK_TIME) % (std::f32::consts::PI * 2.0);
-
-        self.velocity *= ENERGY_CONSERVATION.powf(TICK_TIME);
-        let direction = Vector2::new(self.angle.cos(), self.angle.sin());
-        let mut acceleration = self.thrust * direction;
-        acceleration.y -= GRAVITY;
-        self.velocity += acceleration * TICK_TIME;
-        self.position += self.velocity * TICK_TIME;
         Ok(())
     }
 }
