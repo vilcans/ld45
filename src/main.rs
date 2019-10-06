@@ -435,6 +435,21 @@ impl MainState {
                 self.wanted_level = 3;
                 Some("Mom?".to_string())
             }
+
+            // Level 3
+            (3, 10) => { Some("Am I dreaming? I don't exist.\nOnly this ship is real.".to_string())}
+            (3, 11) => { Some("I am this ship.".to_string())}
+            (3, 12) => { Some("I have memories of something else.\nMom, why did you leave me?".to_string())}
+            (3, 13) => { Some("It was Christmas. After my birthday.\nWe were going to New York.".to_string())}
+            (3, 14) => { Some("The plane crash! Then darkness. Hearing nothing, feeling nothing.".to_string())}
+            (3, 15) => {
+                Some("Mom next to the bed.\n... signed me away.".to_string())
+            }
+            (3, 20) => {
+                self.wanted_level = 1;
+                Some("Out of content. Thanks for playing!".to_string())
+            }
+
             _ => {
                 Some(
                     format!(
