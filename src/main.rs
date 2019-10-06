@@ -248,7 +248,7 @@ impl event::EventHandler for MainState {
                         let point = ship_transform * Point2::new(x, y);
                         let hit = self.get_collision(point.into());
                         if hit {
-                            println!("Collided at {}", point);
+                            //println!("Collided at {}", point);
                             collided = true;
                         }
                     }
