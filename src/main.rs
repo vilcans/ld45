@@ -53,6 +53,11 @@ const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
 const COLLISION_MAP_WIDTH: u32 = 1024;
 const COLLISION_MAP_HEIGHT: u32 = 1024;
 
+#[derive(Debug, Clone, Copy)]
+enum Level {
+    One,
+}
+
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
@@ -241,14 +246,32 @@ impl MainState {
         return false;
     }
 
-    fn execute_trigger(&mut self, _ctx: &mut Context, trigger_id: u32) -> GameResult {
+    fn execute_trigger(&mut self, ctx: &mut Context, trigger_id: u32) -> GameResult {
         self.shown_triggers.insert(trigger_id);
 
-        let mut text = graphics::Text::new(format!("Hit trigger {}", trigger_id));
-        text.set_font(self.font, graphics::Scale::uniform(40.0));
-        self.ui_text = Some(text);
+        let level = Level::One;
+        match (level, trigger_id) {
+            (Level::One, 1) => {
+                self.show_text(ctx, "Hit trigger ONE");
+            }
+            _ => {
+                self.show_text(
+                    ctx,
+                    &format!(
+                        "Hit unknown trigger {} on level {:?}. This is a bug.",
+                        trigger_id, level
+                    ),
+                );
+            }
+        }
 
         Ok(())
+    }
+
+    fn show_text(&mut self, _ctx: &mut Context, t: &str) {
+        let mut text = graphics::Text::new(t);
+        text.set_font(self.font, graphics::Scale::uniform(40.0));
+        self.ui_text = Some(text);
     }
 }
 
