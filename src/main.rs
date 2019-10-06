@@ -3,6 +3,8 @@
 use serde::Deserialize;
 use std::io::Read;
 
+use bit_vec::BitVec;
+
 //use cgmath;
 use ggez::nalgebra::Point2;
 use ggez::nalgebra::Vector2;
@@ -39,6 +41,16 @@ const FILL_COLOR: u32 = 0x000000;
 const WALL_COLOR: u32 = 0x2ca693;
 const BACKGROUND_COLOR: u32 = 0x023f3c;
 
+const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
+    x: -500.0,
+    y: -500.0,
+    w: 1000.0,
+    h: 1000.0,
+};
+
+const COLLISION_MAP_WIDTH: u32 = 1024;
+const COLLISION_MAP_HEIGHT: u32 = 1024;
+
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
@@ -56,6 +68,8 @@ struct MainState {
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
+        // Ship
+
         let f = ggez::filesystem::open(ctx, "/ship.dat")?;
         let ship_meshes = load_meshes(
             ctx,
@@ -73,6 +87,8 @@ impl MainState {
             meshes: ship_meshes,
         };
 
+        // Level
+
         let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
         let level_meshes = load_meshes(
             ctx,
@@ -80,6 +96,43 @@ impl MainState {
             Color::from_rgb_u32(FILL_COLOR),
             Color::from_rgb_u32(WALL_COLOR),
         )?;
+
+        // Render collision map
+
+        let canvas = graphics::Canvas::new(
+            ctx,
+            COLLISION_MAP_WIDTH as u16,
+            COLLISION_MAP_HEIGHT as u16,
+            conf::NumSamples::One,
+        )?;
+
+        graphics::set_canvas(ctx, Some(&canvas));
+        graphics::clear(ctx, [0.0, 0.0, 0.0, 0.0].into());
+        graphics::set_screen_coordinates(ctx, LEVEL_EXTENTS)?;
+
+        let draw_param = graphics::DrawParam::default();
+        for mesh in &level_meshes {
+            graphics::draw(ctx, mesh, draw_param)?;
+        }
+        graphics::present(ctx)?;
+
+        let image = canvas.into_inner();
+        let pixels = image.to_rgba8(ctx)?;
+        assert!(pixels.len() == (COLLISION_MAP_WIDTH * COLLISION_MAP_HEIGHT * 4) as usize);
+        let mut collision_map = BitVec::from_elem(
+            COLLISION_MAP_WIDTH as usize * COLLISION_MAP_HEIGHT as usize,
+            false,
+        );
+        for y in 0..COLLISION_MAP_HEIGHT {
+            for x in 0..COLLISION_MAP_WIDTH {
+                let i = (x + y * COLLISION_MAP_WIDTH) as usize;
+                let a = pixels[i * 4 + 3];
+                let bit = a > 0x80;
+                collision_map.set(i, bit);
+            }
+        }
+
+        graphics::set_canvas(ctx, None);
 
         let s = MainState { ship, level_meshes };
         Ok(s)
