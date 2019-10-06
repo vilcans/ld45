@@ -59,11 +59,13 @@ struct Ship {
     angular_velocity: f32,
     thrust: f32,
     meshes: Vec<graphics::Mesh>,
+    alive: bool,
 }
 
 struct MainState {
     ship: Ship,
     level_meshes: Vec<graphics::Mesh>,
+    collision_map: BitVec,
 }
 
 impl MainState {
@@ -85,6 +87,7 @@ impl MainState {
             angular_velocity: 0.0,
             thrust: 0.0,
             meshes: ship_meshes,
+            alive: true,
         };
 
         // Level
@@ -127,37 +130,89 @@ impl MainState {
             for x in 0..COLLISION_MAP_WIDTH {
                 let i = (x + y * COLLISION_MAP_WIDTH) as usize;
                 let a = pixels[i * 4 + 3];
-                let bit = a > 0x80;
+                let bit = a >= 0x80;
                 collision_map.set(i, bit);
+            }
+        }
+
+        // Print collision map
+        if true {
+            for y in 0..32 {
+                for x in 0..32 {
+                    let bit = collision_map
+                        .get(
+                            ((y * COLLISION_MAP_HEIGHT / 32) * COLLISION_MAP_WIDTH
+                                + (x * COLLISION_MAP_WIDTH / 32))
+                                as usize,
+                        )
+                        .unwrap();
+                    print!("{}", if bit { 'X' } else { '.' });
+                }
+                println!();
             }
         }
 
         graphics::set_canvas(ctx, None);
 
-        let s = MainState { ship, level_meshes };
+        let s = MainState {
+            ship,
+            level_meshes,
+            collision_map,
+        };
         Ok(s)
+    }
+
+    fn get_collider_map_index(position: Point2<f32>) -> Option<usize> {
+        let r = ((position.y - LEVEL_EXTENTS.top()) * COLLISION_MAP_HEIGHT as f32 / LEVEL_EXTENTS.h)
+            .round() as i32;
+        if r < 0 || r >= COLLISION_MAP_HEIGHT as i32 {
+            println!("Point is outside: {:?} collision row {}", position, r);
+            return None;
+        }
+        let r = r as u32;
+
+        let c = ((position.x - LEVEL_EXTENTS.left()) * COLLISION_MAP_WIDTH as f32 / LEVEL_EXTENTS.w)
+            .round() as i32;
+        if c < 0 || c >= COLLISION_MAP_WIDTH as i32 {
+            println!("Point is outside: {:?} collision column {}", position, c);
+            return None;
+        }
+        let c = c as u32;
+
+        return Some(((COLLISION_MAP_HEIGHT - 1 - r) * COLLISION_MAP_WIDTH + c) as usize);
+    }
+
+    fn get_collision(&self, position: Point2<f32>) -> bool {
+        if let Some(i) = MainState::get_collider_map_index(position) {
+            return self.collision_map[i];
+        }
+        return false;
     }
 }
 
 impl Ship {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.angular_velocity = 0.0;
-        if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-            self.angular_velocity += TURN_SPEED;
-        }
-        if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-            self.angular_velocity -= TURN_SPEED;
-        }
+        self.thrust = 0.0;
 
-        self.thrust = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            THRUST
-        } else {
-            0.0
-        };
+        if self.alive {
+            if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+                self.angular_velocity += TURN_SPEED;
+            }
+            if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+                self.angular_velocity -= TURN_SPEED;
+            }
+            if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+                self.thrust = THRUST;
+            }
+        }
         Ok(())
     }
 
     fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        if !self.alive {
+            return Ok(());
+        }
         self.angle =
             (self.angle + self.angular_velocity * TICK_TIME) % (std::f32::consts::PI * 2.0);
 
@@ -176,6 +231,15 @@ impl event::EventHandler for MainState {
         self.ship.update(ctx)?;
         while timer::check_update_time(ctx, TICKS_PER_SECOND) {
             self.ship.tick(ctx)?;
+
+            if self.ship.alive {
+                let position = self.ship.position;
+                let hit = self.get_collision(position.into());
+                if hit {
+                    self.ship.alive = false;
+                    println!("Collided at {}", position);
+                }
+            }
         }
         Ok(())
     }
