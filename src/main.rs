@@ -122,133 +122,28 @@ impl Ship {
     }
 }
 
-struct MainState {
-    ship: Ship,
+struct LevelState {
     level_meshes: Vec<graphics::Mesh>,
     collision_map: BitVec,
-    font: graphics::Font,
     triggers: HashMap<u32, Trigger>,
-    ui_text: Option<graphics::Text>,
     shown_triggers: HashSet<u32>,
 }
 
-impl MainState {
-    fn new(ctx: &mut Context, level: u32) -> GameResult<MainState> {
-        // Level
-
-        let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level))?;
-        let raw_level_meshes = load_meshes(ctx, f)?;
-        let level_meshes = create_drawables(
-            ctx,
-            &raw_level_meshes,
-            Color::from_rgb_u32(FILL_COLOR),
-            Color::from_rgb_u32(WALL_COLOR),
-        )?;
-
-        let triggers: HashMap<u32, Trigger> = raw_level_meshes
-            .triggers
-            .iter()
-            .map(|t| (t.id, *t))
-            .collect();
-
-        // Render collision map
-
-        let canvas = graphics::Canvas::new(
-            ctx,
-            COLLISION_MAP_WIDTH as u16,
-            COLLISION_MAP_HEIGHT as u16,
-            conf::NumSamples::One,
-        )?;
-
-        graphics::set_canvas(ctx, Some(&canvas));
-        graphics::clear(ctx, [0.0, 0.0, 0.0, 0.0].into());
-        graphics::set_screen_coordinates(ctx, LEVEL_EXTENTS)?;
-
-        let draw_param = graphics::DrawParam::default();
-        for mesh in &level_meshes {
-            graphics::draw(ctx, mesh, draw_param)?;
-        }
-        graphics::present(ctx)?;
-
-        let image = canvas.into_inner();
-        let pixels = image.to_rgba8(ctx)?;
-        assert!(pixels.len() == (COLLISION_MAP_WIDTH * COLLISION_MAP_HEIGHT * 4) as usize);
-        let collision_map = BitVec::from_fn(
-            COLLISION_MAP_WIDTH as usize * COLLISION_MAP_HEIGHT as usize,
-            |i| {
-                let a = pixels[i * 4 + 3];
-                a >= 0x80
-            },
-        );
-
-        // Print collision map
-        if false {
-            for y in 0..32 {
-                for x in 0..32 {
-                    let bit = collision_map
-                        .get(
-                            ((y * COLLISION_MAP_HEIGHT / 32) * COLLISION_MAP_WIDTH
-                                + (x * COLLISION_MAP_WIDTH / 32))
-                                as usize,
-                        )
-                        .unwrap();
-                    print!("{}", if bit { 'X' } else { '.' });
-                }
-                println!();
-            }
-        }
-
-        graphics::set_canvas(ctx, None);
-
-        // Text
-
-        let font = graphics::Font::new(ctx, "/font/font.ttf")?;
-
-        // Ship
-
-        let f = ggez::filesystem::open(ctx, "/ship.dat")?;
-        let ship_polygons = load_meshes(ctx, f)?;
-        let ship_meshes = create_drawables(
-            ctx,
-            &ship_polygons,
-            Color::from_rgb_u32(FILL_COLOR),
-            Color::from_rgb_u32(SHIP_COLOR),
-        )?;
-
-        let f = ggez::filesystem::open(ctx, "/ship-collider.dat")?;
-        let collider_polygons = load_meshes(ctx, f)?;
-
+impl LevelState {
+    fn get_spawn_position(&self) -> Point2<f32> {
         // The spawn position is a "trigger" with ID 0
-        let spawn_trigger = triggers.get(&0u32).unwrap();
-        let spawn_position = Point2::new(
+        let spawn_trigger = self.triggers.get(&0u32).unwrap();
+        Point2::new(
             (spawn_trigger.min_x + spawn_trigger.max_x) * 0.5,
             (spawn_trigger.min_y + spawn_trigger.max_y) * 0.5,
-        );
+        )
+    }
 
-        let ship = Ship {
-            position: spawn_position,
-            velocity: Vector2::new(0.0, 0.0),
-            angle: std::f32::consts::FRAC_PI_2,
-            angular_velocity: 0.0,
-            thrust: 0.0,
-            polygons: collider_polygons,
-            meshes: ship_meshes,
-            alive: true,
-            dead_time: 0.0,
-            thrust_enabled: false,
-            turning_enabled: false,
-        };
-
-        let s = MainState {
-            ship,
-            level_meshes,
-            collision_map,
-            font,
-            triggers,
-            ui_text: None,
-            shown_triggers: HashSet::new(),
-        };
-        Ok(s)
+    fn get_collision(&self, position: Point2<f32>) -> bool {
+        if let Some(i) = LevelState::get_collider_map_index(position) {
+            return self.collision_map[i];
+        }
+        return false;
     }
 
     fn get_collider_map_index(position: Point2<f32>) -> Option<usize> {
@@ -270,16 +165,192 @@ impl MainState {
 
         return Some(((COLLISION_MAP_HEIGHT - 1 - r) * COLLISION_MAP_WIDTH + c) as usize);
     }
+}
 
-    fn get_collision(&self, position: Point2<f32>) -> bool {
-        if let Some(i) = MainState::get_collider_map_index(position) {
-            return self.collision_map[i];
+fn load_level(ctx: &mut Context, level: u32) -> GameResult<LevelState> {
+    // Level
+
+    let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level))?;
+    let raw_level_meshes = load_meshes(ctx, f)?;
+    let level_meshes = create_drawables(
+        ctx,
+        &raw_level_meshes,
+        Color::from_rgb_u32(FILL_COLOR),
+        Color::from_rgb_u32(WALL_COLOR),
+    )?;
+
+    let triggers: HashMap<u32, Trigger> = raw_level_meshes
+        .triggers
+        .iter()
+        .map(|t| (t.id, *t))
+        .collect();
+
+    // Render collision map
+
+    let canvas = graphics::Canvas::new(
+        ctx,
+        COLLISION_MAP_WIDTH as u16,
+        COLLISION_MAP_HEIGHT as u16,
+        conf::NumSamples::One,
+    )?;
+
+    graphics::set_canvas(ctx, Some(&canvas));
+    graphics::clear(ctx, [0.0, 0.0, 0.0, 0.0].into());
+    graphics::set_screen_coordinates(ctx, LEVEL_EXTENTS)?;
+
+    let draw_param = graphics::DrawParam::default();
+    for mesh in &level_meshes {
+        graphics::draw(ctx, mesh, draw_param)?;
+    }
+    graphics::present(ctx)?;
+
+    let image = canvas.into_inner();
+    let pixels = image.to_rgba8(ctx)?;
+    assert!(pixels.len() == (COLLISION_MAP_WIDTH * COLLISION_MAP_HEIGHT * 4) as usize);
+    let collision_map = BitVec::from_fn(
+        COLLISION_MAP_WIDTH as usize * COLLISION_MAP_HEIGHT as usize,
+        |i| {
+            let a = pixels[i * 4 + 3];
+            a >= 0x80
+        },
+    );
+
+    // Print collision map
+    if false {
+        for y in 0..32 {
+            for x in 0..32 {
+                let bit = collision_map
+                    .get(
+                        ((y * COLLISION_MAP_HEIGHT / 32) * COLLISION_MAP_WIDTH
+                            + (x * COLLISION_MAP_WIDTH / 32)) as usize,
+                    )
+                    .unwrap();
+                print!("{}", if bit { 'X' } else { '.' });
+            }
+            println!();
         }
-        return false;
+    }
+
+    graphics::set_canvas(ctx, None);
+
+    Ok(LevelState {
+        level_meshes,
+        collision_map,
+        triggers,
+        shown_triggers: HashSet::new(),
+    })
+}
+
+struct MainState {
+    ship: Ship,
+    font: graphics::Font,
+    ui_text: Option<graphics::Text>,
+    level: Option<LevelState>,
+}
+
+impl MainState {
+    fn new(ctx: &mut Context, starting_level: u32) -> GameResult<MainState> {
+        // Text
+
+        let font = graphics::Font::new(ctx, "/font/font.ttf")?;
+
+        // Ship
+
+        let f = ggez::filesystem::open(ctx, "/ship.dat")?;
+        let ship_polygons = load_meshes(ctx, f)?;
+        let ship_meshes = create_drawables(
+            ctx,
+            &ship_polygons,
+            Color::from_rgb_u32(FILL_COLOR),
+            Color::from_rgb_u32(SHIP_COLOR),
+        )?;
+
+        let f = ggez::filesystem::open(ctx, "/ship-collider.dat")?;
+        let collider_polygons = load_meshes(ctx, f)?;
+
+        let level = load_level(ctx, starting_level)?;
+        let ship = Ship {
+            position: level.get_spawn_position(),
+            velocity: Vector2::new(0.0, 0.0),
+            angle: std::f32::consts::FRAC_PI_2,
+            angular_velocity: 0.0,
+            thrust: 0.0,
+            polygons: collider_polygons,
+            meshes: ship_meshes,
+            alive: true,
+            dead_time: 0.0,
+            thrust_enabled: false,
+            turning_enabled: false,
+        };
+
+        Ok(MainState {
+            ship,
+            font,
+            ui_text: None,
+            level: Some(level),
+        })
+    }
+
+    fn update_during_play(&mut self, ctx: &mut Context) -> GameResult<Option<u32>> {
+        let level = self.level.as_ref().unwrap();
+
+        let mut hit_trigger = None;
+
+        self.ship.update(ctx)?;
+        while timer::check_update_time(ctx, TICKS_PER_SECOND) && hit_trigger.is_none() {
+            self.ship.tick(ctx)?;
+
+            if self.ship.alive {
+                let ship_transform = nalgebra::Isometry2::new(
+                    Vector2::new(self.ship.position.x, self.ship.position.y),
+                    self.ship.angle,
+                );
+                //println!("Ship transform: {}", ship_transform);
+
+                let mut collided = false;
+                for poly in self.ship.polygons.polygons.iter() {
+                    for &(x, y) in poly.iter() {
+                        let point = ship_transform * Point2::new(x, y);
+                        let hit = level.get_collision(point.into());
+                        if hit {
+                            //println!("Collided at {}", point);
+                            collided = true;
+                        }
+                    }
+                }
+
+                if collided {
+                    self.ship.alive = false;
+                } else {
+                    for (&trigger_id, trigger) in level.triggers.iter() {
+                        if trigger.min_x <= self.ship.position.x
+                            && self.ship.position.x < trigger.max_x
+                            && trigger.min_y <= self.ship.position.y
+                            && self.ship.position.y < trigger.max_y
+                            && !level.shown_triggers.contains(&trigger_id)
+                        {
+                            println!("In trigger {}: {}", trigger_id, self.ship.position);
+                            hit_trigger = Some(trigger_id);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                self.ship.dead_time += TICK_TIME;
+            }
+        }
+        if !self.ship.alive && self.ship.dead_time >= DEAD_TIMEOUT {
+            self.show_text(ctx, "Ouch! ... I wonder why that felt familiar.");
+        }
+        Ok(hit_trigger)
     }
 
     fn execute_trigger(&mut self, ctx: &mut Context, trigger_id: u32) -> GameResult {
-        self.shown_triggers.insert(trigger_id);
+        self.level
+            .as_mut()
+            .unwrap()
+            .shown_triggers
+            .insert(trigger_id);
 
         let level = Level::One;
         match (level, trigger_id) {
@@ -350,59 +421,14 @@ impl event::EventHandler for MainState {
             }
         }
 
-        self.ship.update(ctx)?;
-        while timer::check_update_time(ctx, TICKS_PER_SECOND) {
-            if ui_displayed {
-                continue;
-            }
-            self.ship.tick(ctx)?;
-
-            if self.ship.alive {
-                let ship_transform = nalgebra::Isometry2::new(
-                    Vector2::new(self.ship.position.x, self.ship.position.y),
-                    self.ship.angle,
-                );
-                //println!("Ship transform: {}", ship_transform);
-
-                let mut collided = false;
-                for poly in self.ship.polygons.polygons.iter() {
-                    for &(x, y) in poly.iter() {
-                        let point = ship_transform * Point2::new(x, y);
-                        let hit = self.get_collision(point.into());
-                        if hit {
-                            //println!("Collided at {}", point);
-                            collided = true;
-                        }
-                    }
-                }
-
-                if collided {
-                    self.ship.alive = false;
-                } else {
-                    let mut hit_trigger = None;
-                    for (&trigger_id, trigger) in self.triggers.iter() {
-                        if trigger.min_x <= self.ship.position.x
-                            && self.ship.position.x < trigger.max_x
-                            && trigger.min_y <= self.ship.position.y
-                            && self.ship.position.y < trigger.max_y
-                            && !self.shown_triggers.contains(&trigger_id)
-                        {
-                            println!("In trigger {}: {}", trigger_id, self.ship.position);
-                            hit_trigger = Some(trigger_id);
-                            break;
-                        }
-                    }
-                    if let Some(hit_trigger_id) = hit_trigger {
-                        self.execute_trigger(ctx, hit_trigger_id)?;
-                    }
-                }
-            } else {
-                self.ship.dead_time += TICK_TIME;
+        if !ui_displayed && self.level.is_some() {
+            let r = self.update_during_play(ctx)?;
+            if let Some(trigger_id) = r {
+                self.execute_trigger(ctx, trigger_id)?;
             }
         }
-        if !self.ship.alive && self.ship.dead_time >= DEAD_TIMEOUT {
-            self.show_text(ctx, "Ouch! ... I wonder why that felt familiar.");
-        }
+        // There must be a better way to make sure we waste the time?
+        while timer::check_update_time(ctx, TICKS_PER_SECOND) {}
         Ok(())
     }
 
@@ -432,8 +458,10 @@ impl event::EventHandler for MainState {
         graphics::set_screen_coordinates(ctx, world_draw_rect)?;
 
         // Draw level
-        for mesh in &self.level_meshes {
-            graphics::draw(ctx, mesh, draw_param)?;
+        if let Some(level) = &self.level {
+            for mesh in &level.level_meshes {
+                graphics::draw(ctx, mesh, draw_param)?;
+            }
         }
 
         // Draw ship
