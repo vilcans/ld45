@@ -122,18 +122,13 @@ impl MainState {
         let image = canvas.into_inner();
         let pixels = image.to_rgba8(ctx)?;
         assert!(pixels.len() == (COLLISION_MAP_WIDTH * COLLISION_MAP_HEIGHT * 4) as usize);
-        let mut collision_map = BitVec::from_elem(
+        let collision_map = BitVec::from_fn(
             COLLISION_MAP_WIDTH as usize * COLLISION_MAP_HEIGHT as usize,
-            false,
-        );
-        for y in 0..COLLISION_MAP_HEIGHT {
-            for x in 0..COLLISION_MAP_WIDTH {
-                let i = (x + y * COLLISION_MAP_WIDTH) as usize;
+            |i| {
                 let a = pixels[i * 4 + 3];
-                let bit = a >= 0x80;
-                collision_map.set(i, bit);
-            }
-        }
+                a >= 0x80
+            },
+        );
 
         // Print collision map
         if true {
