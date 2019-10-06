@@ -4,6 +4,7 @@ use serde::Deserialize;
 use std::io::Read;
 
 use bit_vec::BitVec;
+use std::collections::HashSet;
 
 //use cgmath;
 use ggez::nalgebra;
@@ -69,7 +70,9 @@ struct MainState {
     level_meshes: Vec<graphics::Mesh>,
     collision_map: BitVec,
     font: graphics::Font,
+    triggers: Vec<Trigger>,
     ui_text: Option<graphics::Text>,
+    shown_triggers: HashSet<u32>,
 }
 
 impl MainState {
@@ -168,11 +171,9 @@ impl MainState {
             level_meshes,
             collision_map,
             font,
-            ui_text: {
-                let mut text = graphics::Text::new("What's this? What happened? Am I falling?");
-                text.set_font(font, graphics::Scale::uniform(40.0));
-                Some(text)
-            },
+            triggers: raw_level_meshes.triggers,
+            ui_text: None,
+            shown_triggers: HashSet::new(),
         };
         Ok(s)
     }
@@ -202,6 +203,16 @@ impl MainState {
             return self.collision_map[i];
         }
         return false;
+    }
+
+    fn execute_trigger(&mut self, _ctx: &mut Context, trigger_id: u32) -> GameResult {
+        self.shown_triggers.insert(trigger_id);
+
+        let mut text = graphics::Text::new(format!("Hit trigger {}", trigger_id));
+        text.set_font(self.font, graphics::Scale::uniform(40.0));
+        self.ui_text = Some(text);
+
+        Ok(())
     }
 }
 
@@ -280,6 +291,23 @@ impl event::EventHandler for MainState {
 
                 if collided {
                     self.ship.alive = false;
+                } else {
+                    let mut hit_trigger = None;
+                    for trigger in self.triggers.iter() {
+                        if trigger.min_x <= self.ship.position.x
+                            && self.ship.position.x < trigger.max_x
+                            && trigger.min_y <= self.ship.position.y
+                            && self.ship.position.y < trigger.max_y
+                            && !self.shown_triggers.contains(&trigger.id)
+                        {
+                            println!("In trigger {}: {}", trigger.id, self.ship.position);
+                            hit_trigger = Some(trigger.id);
+                            break;
+                        }
+                    }
+                    if let Some(hit_trigger_id) = hit_trigger {
+                        self.execute_trigger(ctx, hit_trigger_id)?;
+                    }
                 }
             }
         }
@@ -344,8 +372,18 @@ impl event::EventHandler for MainState {
 }
 
 #[derive(Deserialize, Debug)]
+struct Trigger {
+    id: u32,
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+}
+
+#[derive(Deserialize, Debug)]
 struct RawMeshes {
     polygons: Vec<Vec<(f32, f32)>>,
+    triggers: Vec<Trigger>,
 }
 
 fn load_meshes(_ctx: &mut Context, mut file: File) -> GameResult<RawMeshes> {
