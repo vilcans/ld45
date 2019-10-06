@@ -261,6 +261,7 @@ struct MainState {
     ui_text: Option<graphics::Text>,
     level: Option<LevelState>,
     _ambient: audio::Source,
+    ping: audio::Source,
 }
 
 impl MainState {
@@ -269,6 +270,8 @@ impl MainState {
         let mut ambient = audio::Source::new(ctx, "/music.ogg").unwrap();
         let _ = ambient.play_detached();
         ambient.set_repeat(true);
+
+        let mut ping = audio::Source::new(ctx, "/ping.ogg").unwrap();
 
         // Text
 
@@ -309,6 +312,7 @@ impl MainState {
             ui_text: None,
             level: Some(level),
             _ambient: ambient,
+            ping,
         })
     }
 
@@ -420,6 +424,7 @@ impl MainState {
     }
 
     fn show_text(&mut self, _ctx: &mut Context, t: &str) {
+        let _ = self.ping.play();
         let mut text = graphics::Text::new(t);
         text.set_font(self.font, graphics::Scale::uniform(FONT_SIZE));
         self.ui_text = Some(text);
