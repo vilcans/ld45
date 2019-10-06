@@ -288,11 +288,13 @@ impl event::EventHandler for MainState {
         }
 
         // Draw ship
-        let ship_draw_param = draw_param
-            .dest(self.ship.position)
-            .rotation(self.ship.angle);
-        for mesh in &self.ship.meshes {
-            graphics::draw(ctx, mesh, ship_draw_param)?;
+        if self.ship.alive {
+            let ship_draw_param = draw_param
+                .dest(self.ship.position)
+                .rotation(self.ship.angle);
+            for mesh in &self.ship.meshes {
+                graphics::draw(ctx, mesh, ship_draw_param)?;
+            }
         }
 
         graphics::present(ctx)?;
