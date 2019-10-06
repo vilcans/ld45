@@ -59,11 +59,6 @@ const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
 const COLLISION_MAP_WIDTH: u32 = 1024;
 const COLLISION_MAP_HEIGHT: u32 = 2048;
 
-#[derive(Debug, Clone, Copy)]
-enum Level {
-    One,
-}
-
 struct Ship {
     position: Point2<f32>,
     velocity: Vector2<f32>,
@@ -137,6 +132,7 @@ impl Ship {
 }
 
 struct LevelState {
+    level_number: u32,
     level_meshes: Vec<graphics::Mesh>,
     collision_map: BitVec,
     triggers: HashMap<u32, Trigger>,
@@ -181,10 +177,10 @@ impl LevelState {
     }
 }
 
-fn load_level(ctx: &mut Context, level: u32) -> GameResult<LevelState> {
+fn load_level(ctx: &mut Context, level_number: u32) -> GameResult<LevelState> {
     // Level
 
-    let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level))?;
+    let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level_number))?;
     let raw_level_meshes = load_meshes(ctx, f)?;
     let level_meshes = create_drawables(
         ctx,
@@ -248,6 +244,7 @@ fn load_level(ctx: &mut Context, level: u32) -> GameResult<LevelState> {
     graphics::set_canvas(ctx, None);
 
     Ok(LevelState {
+        level_number,
         level_meshes,
         collision_map,
         triggers,
@@ -380,53 +377,71 @@ impl MainState {
     }
 
     fn execute_trigger(&mut self, ctx: &mut Context, trigger_id: u32) -> GameResult {
-        self.level
-            .as_mut()
-            .unwrap()
-            .shown_triggers
-            .insert(trigger_id);
+        let level = self.level.as_mut().unwrap();
+        level.shown_triggers.insert(trigger_id);
 
-        let level = Level::One;
-        match (level, trigger_id) {
+        let text: Option<String> = match (level.level_number, trigger_id) {
             (_, 0) => {
                 // ignore hitting the spawn point
+                None
             }
-            (Level::One, 10) => {
-                self.show_text(ctx, "What's this? What happened? Am I falling?");
+            (1, 10) => {
+                Some("What's this? What happened? Am I falling?".to_string())
             }
-            (Level::One, 11) => {
-                self.show_text(ctx, "I'm in some kind of aircraft. Can I control it?");
+            (1, 11) => {
+                Some("I'm in some kind of aircraft. Can I control it?".to_string())
             }
-            (Level::One, 12) => {
-                self.show_text(ctx, "Nothing. I'm going to crash!");
+            (1, 12) => {
+                Some("Nothing. I'm going to crash!".to_string())
             }
-            (Level::One, 13) => {
-                self.show_text(ctx, "Wait! I feel it... Go up!");
+            (1, 13) => {
                 self.ship.thrust_enabled = true;
+                Some("Wait! I feel it... Go up!".to_string())
             }
-            (Level::One, 14) => {
-                self.show_text(ctx, "Up! Up! Up!");
+            (1, 14) => {
+                Some("Up! Up! Up!".to_string())
             }
-            (Level::One, 20) => {
-                self.show_text(ctx, "I think I know how to turn left and right...");
+            (1, 20) => {
                 self.ship.turning_enabled = true;
+                Some("I think I know how to turn left and right...".to_string())
             }
-            (Level::One, 21) => {
-                self.show_text(ctx, "This feels stangely natural. I should be a pilot!");
+            (1, 21) => {
+                Some("This feels stangely natural. I should be a pilot!".to_string())
             }
-            (Level::One, 22) => {
-                self.show_text(ctx, "Maybe I am a pilot? I don't remember anything.");
+            (1, 22) => {
+                Some("Maybe I am a pilot? I don't remember anything.".to_string())
             }
 
-            _ => {
-                self.show_text(
-                    ctx,
-                    &format!(
-                        "Hit unknown trigger {} on level {:?}. This is a bug.",
-                        trigger_id, level
-                    ),
-                );
+            // Level 2
+            (2, 9) => {
+                    Some("What am I doing here? I feel strange. Where are my arms?".to_string())
             }
+            (2, 10) => {
+                Some("I remember something. A woman. That's all.".to_string())
+            }
+            (2, 11) => {
+                Some("Pilot training! I did pilot training!\nThousands of training missions. Millions even.".to_string())
+            }
+            (2, 12) => {
+                Some("Dogfights. Low altitude precision flight.\nHigh speed pursuits.\nBut I don't remember any people.".to_string())
+            }
+            (2, 13) => {
+                Some("That woman again! Is that a memory, a real memory?".to_string())
+            }
+            (2, 14) => {
+                Some("Mom?".to_string())
+            }
+            _ => {
+                Some(
+                    format!(
+                        "Hit unknown trigger {} on level {:?}. This is a bug.",
+                        trigger_id, level.level_number
+                    ),
+                )
+            }
+        };
+        if let Some(text) = text {
+            self.show_text(ctx, &text);
         }
 
         Ok(())
