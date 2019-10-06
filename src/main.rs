@@ -25,6 +25,8 @@ use ggez::{Context, GameResult};
 use std::env;
 use std::path;
 
+const DEAD_TIMEOUT: f32 = 1.5;
+
 const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
@@ -68,6 +70,7 @@ struct Ship {
     polygons: RawMeshes,
     meshes: Vec<graphics::Mesh>,
     alive: bool,
+    dead_time: f32,
     turning_enabled: bool,
     thrust_enabled: bool,
 }
@@ -229,6 +232,7 @@ impl MainState {
             polygons: collider_polygons,
             meshes: ship_meshes,
             alive: true,
+            dead_time: 0.0,
             thrust_enabled: false,
             turning_enabled: false,
         };
@@ -334,6 +338,11 @@ impl event::EventHandler for MainState {
         if ui_displayed {
             if input::keyboard::is_key_pressed(ctx, KeyCode::Return) {
                 self.ui_text = None;
+                if !self.ship.alive {
+                    // It's the game over text
+                    //self.restart_level();
+                    std::process::exit(0);
+                }
             } else {
                 timer::sleep(timer::f64_to_duration(0.01));
             }
@@ -385,7 +394,12 @@ impl event::EventHandler for MainState {
                         self.execute_trigger(ctx, hit_trigger_id)?;
                     }
                 }
+            } else {
+                self.ship.dead_time += TICK_TIME;
             }
+        }
+        if !self.ship.alive && self.ship.dead_time >= DEAD_TIMEOUT {
+            self.show_text(ctx, "Ouch! ... I wonder why that felt familiar.");
         }
         Ok(())
     }
