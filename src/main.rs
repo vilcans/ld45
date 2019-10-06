@@ -83,13 +83,16 @@ impl MainState {
             Color::from_rgb_u32(SHIP_COLOR),
         )?;
 
+        let f = ggez::filesystem::open(ctx, "/ship-collider.dat")?;
+        let collider_polygons = load_meshes(ctx, f)?;
+
         let ship = Ship {
             position: Point2::new(0.0, 0.0),
             velocity: Vector2::new(0.0, 0.0),
             angle: std::f32::consts::FRAC_PI_2,
             angular_velocity: 0.0,
             thrust: 0.0,
-            polygons: ship_polygons,
+            polygons: collider_polygons,
             meshes: ship_meshes,
             alive: true,
         };
