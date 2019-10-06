@@ -4,7 +4,7 @@ use serde::Deserialize;
 use std::io::Read;
 
 use bit_vec::BitVec;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 //use cgmath;
 use ggez::nalgebra;
@@ -111,7 +111,7 @@ struct MainState {
     level_meshes: Vec<graphics::Mesh>,
     collision_map: BitVec,
     font: graphics::Font,
-    triggers: Vec<Trigger>,
+    triggers: HashMap<u32, Trigger>,
     ui_text: Option<graphics::Text>,
     shown_triggers: HashSet<u32>,
 }
@@ -212,7 +212,11 @@ impl MainState {
             level_meshes,
             collision_map,
             font,
-            triggers: raw_level_meshes.triggers,
+            triggers: raw_level_meshes
+                .triggers
+                .iter()
+                .map(|t| (t.id, *t))
+                .collect(),
             ui_text: None,
             shown_triggers: HashSet::new(),
         };
@@ -251,6 +255,9 @@ impl MainState {
 
         let level = Level::One;
         match (level, trigger_id) {
+            (_, 0) => {
+                // ignore hitting the spawn point
+            }
             (Level::One, 1) => {
                 self.show_text(ctx, "Hit trigger ONE");
             }
@@ -316,15 +323,15 @@ impl event::EventHandler for MainState {
                     self.ship.alive = false;
                 } else {
                     let mut hit_trigger = None;
-                    for trigger in self.triggers.iter() {
+                    for (&trigger_id, trigger) in self.triggers.iter() {
                         if trigger.min_x <= self.ship.position.x
                             && self.ship.position.x < trigger.max_x
                             && trigger.min_y <= self.ship.position.y
                             && self.ship.position.y < trigger.max_y
-                            && !self.shown_triggers.contains(&trigger.id)
+                            && !self.shown_triggers.contains(&trigger_id)
                         {
-                            println!("In trigger {}: {}", trigger.id, self.ship.position);
-                            hit_trigger = Some(trigger.id);
+                            println!("In trigger {}: {}", trigger_id, self.ship.position);
+                            hit_trigger = Some(trigger_id);
                             break;
                         }
                     }
@@ -394,7 +401,7 @@ impl event::EventHandler for MainState {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Copy, Clone)]
 struct Trigger {
     id: u32,
     min_x: f32,
