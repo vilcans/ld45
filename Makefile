@@ -88,7 +88,7 @@ gen-resources:
 
 gen-resources/mesh.dat: source-assets/mesh.blend bin/convert_mesh.py
 	rm -f $@
-	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --exclude=Ship $@
+	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --exclude=Ship --exclude=Extents $@
 	@if [ ! -e $@ ]; then echo Not created: $@; exit 1; fi
 
 gen-resources/ship.dat: source-assets/mesh.blend bin/convert_mesh.py

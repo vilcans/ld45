@@ -56,16 +56,16 @@ def main(args):
         help='Save mesh data to this file'
     )
     parser.add_argument(
-        '--exclude', nargs='*', default=[],
+        '--exclude', action='append',
         help='Exclude object with this name'
     )
     parser.add_argument(
-        '--include', nargs='*', default=None,
+        '--include', action='append', default=None,
         help='Include only objects with these names'
     )
     args = parser.parse_args(args=args)
 
-    polygons = convert(C.scene.objects, exclude=args.exclude,
+    polygons = convert(C.scene.objects, exclude=args.exclude or [],
                        include=args.include)
 
     with open(args.out, 'wb') as out:
