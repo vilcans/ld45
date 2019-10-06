@@ -257,6 +257,7 @@ struct MainState {
     font: graphics::Font,
     ui_text: Option<graphics::Text>,
     level: Option<LevelState>,
+    wanted_level: u32,
     _ambient: audio::Source,
     ping: audio::Source,
     thrust_sound: audio::Source,
@@ -314,6 +315,7 @@ impl MainState {
             font,
             ui_text: None,
             level: Some(level),
+            wanted_level: starting_level,
             _ambient: ambient,
             ping,
             thrust_sound,
@@ -409,6 +411,7 @@ impl MainState {
                 Some("This feels stangely natural. I should be a pilot!".to_string())
             }
             (1, 22) => {
+                self.wanted_level = 2;
                 Some("Maybe I am a pilot? I don't remember anything.".to_string())
             }
 
@@ -429,6 +432,7 @@ impl MainState {
                 Some("That woman again! Is that a memory, a real memory?".to_string())
             }
             (2, 14) => {
+                self.wanted_level = 3;
                 Some("Mom?".to_string())
             }
             _ => {
@@ -468,6 +472,9 @@ impl event::EventHandler for MainState {
                 self.ui_text = None;
                 if !self.ship.alive {
                     // It's the game over text
+                    self.restart_level();
+                } else if self.wanted_level != self.level.as_ref().unwrap().level_number {
+                    self.level = Some(load_level(ctx, self.wanted_level)?);
                     self.restart_level();
                 }
             } else {
