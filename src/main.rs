@@ -308,8 +308,8 @@ impl MainState {
             meshes: ship_meshes,
             alive: true,
             dead_time: 0.0,
-            thrust_enabled: false,
-            turning_enabled: false,
+            thrust_enabled: starting_level != 1,
+            turning_enabled: starting_level != 1,
         };
 
         Ok(MainState {
