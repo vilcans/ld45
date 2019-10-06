@@ -134,7 +134,7 @@ impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         // Level
 
-        let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
+        let f = ggez::filesystem::open(ctx, "/level01.dat")?;
         let raw_level_meshes = load_meshes(ctx, f)?;
         let level_meshes = create_drawables(
             ctx,

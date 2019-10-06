@@ -80,14 +80,14 @@ test:
 
 .PHONY: resources
 resources: gen-resources \
-	gen-resources/mesh.dat \
+	gen-resources/level01.dat \
 	gen-resources/ship.dat \
 	gen-resources/ship-collider.dat
 
 gen-resources:
 	mkdir -p gen-resources
 
-gen-resources/mesh.dat: source-assets/mesh.blend bin/convert_mesh.py
+gen-resources/level%.dat: source-assets/level%.blend
 	rm -f $@
 	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --exclude=Ship --exclude=ShipCollider --exclude=Extents $@
 	@if [ ! -e $@ ]; then echo Not created: $@; exit 1; fi
