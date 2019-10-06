@@ -6,6 +6,7 @@ use std::io::Read;
 use bit_vec::BitVec;
 
 //use cgmath;
+use ggez::nalgebra;
 use ggez::nalgebra::Point2;
 use ggez::nalgebra::Vector2;
 
@@ -58,6 +59,7 @@ struct Ship {
     angle: f32,
     angular_velocity: f32,
     thrust: f32,
+    polygons: RawMeshes,
     meshes: Vec<graphics::Mesh>,
     alive: bool,
 }
@@ -73,10 +75,10 @@ impl MainState {
         // Ship
 
         let f = ggez::filesystem::open(ctx, "/ship.dat")?;
-        let raw_ship_meshes = load_meshes(ctx, f)?;
+        let ship_polygons = load_meshes(ctx, f)?;
         let ship_meshes = create_drawables(
             ctx,
-            &raw_ship_meshes,
+            &ship_polygons,
             Color::from_rgb_u32(FILL_COLOR),
             Color::from_rgb_u32(SHIP_COLOR),
         )?;
@@ -87,6 +89,7 @@ impl MainState {
             angle: std::f32::consts::FRAC_PI_2,
             angular_velocity: 0.0,
             thrust: 0.0,
+            polygons: ship_polygons,
             meshes: ship_meshes,
             alive: true,
         };
@@ -230,11 +233,26 @@ impl event::EventHandler for MainState {
             self.ship.tick(ctx)?;
 
             if self.ship.alive {
-                let position = self.ship.position;
-                let hit = self.get_collision(position.into());
-                if hit {
+                let ship_transform = nalgebra::Isometry2::new(
+                    Vector2::new(self.ship.position.x, self.ship.position.y),
+                    self.ship.angle,
+                );
+                //println!("Ship transform: {}", ship_transform);
+
+                let mut collided = false;
+                for poly in self.ship.polygons.polygons.iter() {
+                    for &(x, y) in poly.iter() {
+                        let point = ship_transform * Point2::new(x, y);
+                        let hit = self.get_collision(point.into());
+                        if hit {
+                            println!("Collided at {}", point);
+                            collided = true;
+                        }
+                    }
+                }
+
+                if collided {
                     self.ship.alive = false;
-                    println!("Collided at {}", position);
                 }
             }
         }
