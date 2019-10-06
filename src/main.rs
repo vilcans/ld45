@@ -45,13 +45,13 @@ const BACKGROUND_COLOR: u32 = 0x023f3c;
 
 const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
     x: -500.0,
-    y: -500.0,
+    y: -1000.0,
     w: 1000.0,
-    h: 1000.0,
+    h: 2000.0,
 };
 
 const COLLISION_MAP_WIDTH: u32 = 1024;
-const COLLISION_MAP_HEIGHT: u32 = 1024;
+const COLLISION_MAP_HEIGHT: u32 = 2048;
 
 #[derive(Debug, Clone, Copy)]
 enum Level {
@@ -68,6 +68,8 @@ struct Ship {
     polygons: RawMeshes,
     meshes: Vec<graphics::Mesh>,
     alive: bool,
+    turning_enabled: bool,
+    thrust_enabled: bool,
 }
 
 impl Ship {
@@ -76,13 +78,22 @@ impl Ship {
         self.thrust = 0.0;
 
         if self.alive {
-            if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
+            if self.turning_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::A)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Left))
+            {
                 self.angular_velocity += TURN_SPEED;
             }
-            if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
+            if self.turning_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::D)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Right))
+            {
                 self.angular_velocity -= TURN_SPEED;
             }
-            if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
+            if self.thrust_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::W)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Up))
+            {
                 self.thrust = THRUST;
             }
         }
@@ -218,6 +229,8 @@ impl MainState {
             polygons: collider_polygons,
             meshes: ship_meshes,
             alive: true,
+            thrust_enabled: false,
+            turning_enabled: false,
         };
 
         let s = MainState {
@@ -267,9 +280,33 @@ impl MainState {
             (_, 0) => {
                 // ignore hitting the spawn point
             }
-            (Level::One, 1) => {
-                self.show_text(ctx, "Hit trigger ONE");
+            (Level::One, 10) => {
+                self.show_text(ctx, "What's this? What happened? Am I falling?");
             }
+            (Level::One, 11) => {
+                self.show_text(ctx, "I'm in some kind of aircraft. Can I control it?");
+            }
+            (Level::One, 12) => {
+                self.show_text(ctx, "Nothing. I'm going to crash!");
+            }
+            (Level::One, 13) => {
+                self.show_text(ctx, "Wait! I feel it... Go up!");
+                self.ship.thrust_enabled = true;
+            }
+            (Level::One, 14) => {
+                self.show_text(ctx, "Up! Up! Up!");
+            }
+            (Level::One, 20) => {
+                self.show_text(ctx, "I think I know how to turn left and right...");
+                self.ship.turning_enabled = true;
+            }
+            (Level::One, 21) => {
+                self.show_text(ctx, "This feels stangely natural. I should be a pilot!");
+            }
+            (Level::One, 22) => {
+                self.show_text(ctx, "Maybe I am a pilot? I don't remember anything.");
+            }
+
             _ => {
                 self.show_text(
                     ctx,
