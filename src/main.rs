@@ -45,6 +45,8 @@ const FILL_COLOR: u32 = 0x000000;
 const WALL_COLOR: u32 = 0x2ca693;
 const BACKGROUND_COLOR: u32 = 0x023f3c;
 
+const FONT_SIZE: f32 = 28.0;
+
 const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
     x: -500.0,
     y: -1000.0,
@@ -327,7 +329,7 @@ impl MainState {
 
     fn show_text(&mut self, _ctx: &mut Context, t: &str) {
         let mut text = graphics::Text::new(t);
-        text.set_font(self.font, graphics::Scale::uniform(40.0));
+        text.set_font(self.font, graphics::Scale::uniform(FONT_SIZE));
         self.ui_text = Some(text);
     }
 }
