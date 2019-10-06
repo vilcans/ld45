@@ -129,6 +129,12 @@ impl MainState {
             Color::from_rgb_u32(WALL_COLOR),
         )?;
 
+        let triggers: HashMap<u32, Trigger> = raw_level_meshes
+            .triggers
+            .iter()
+            .map(|t| (t.id, *t))
+            .collect();
+
         // Render collision map
 
         let canvas = graphics::Canvas::new(
@@ -196,8 +202,15 @@ impl MainState {
         let f = ggez::filesystem::open(ctx, "/ship-collider.dat")?;
         let collider_polygons = load_meshes(ctx, f)?;
 
+        // The spawn position is a "trigger" with ID 0
+        let spawn_trigger = triggers.get(&0u32).unwrap();
+        let spawn_position = Point2::new(
+            (spawn_trigger.min_x + spawn_trigger.max_x) * 0.5,
+            (spawn_trigger.min_y + spawn_trigger.max_y) * 0.5,
+        );
+
         let ship = Ship {
-            position: Point2::new(0.0, 0.0),
+            position: spawn_position,
             velocity: Vector2::new(0.0, 0.0),
             angle: std::f32::consts::FRAC_PI_2,
             angular_velocity: 0.0,
@@ -212,11 +225,7 @@ impl MainState {
             level_meshes,
             collision_map,
             font,
-            triggers: raw_level_meshes
-                .triggers
-                .iter()
-                .map(|t| (t.id, *t))
-                .collect(),
+            triggers,
             ui_text: None,
             shown_triggers: HashSet::new(),
         };
