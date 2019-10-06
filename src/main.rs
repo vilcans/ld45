@@ -469,14 +469,13 @@ impl event::EventHandler for MainState {
 
         let thrust_volume = if self.ship.alive {
             if self.ui_text.is_none() {
-                self.ship.thrust * 0.60 / THRUST
+                self.ship.thrust * 0.30 / THRUST
             } else {
-                self.ship.thrust * 0.45 / THRUST
+                self.ship.thrust * 0.15 / THRUST
             }
         } else {
             0.0
         };
-        println!("volume {}", thrust_volume);
         self.thrust_sound.set_volume(thrust_volume);
         self.thrust_sound.play_later()?;
 
