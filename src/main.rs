@@ -35,7 +35,7 @@ const ENERGY_CONSERVATION: f32 = 0.6;
 
 const SHIP_COLOR: u32 = 0x91e2db;
 
-const VISIBLE_HEIGHT: f32 = 200.0;
+const VISIBLE_HEIGHT: f32 = 300.0;
 
 const STROKE_WIDTH: f32 = 1.0;
 
