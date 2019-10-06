@@ -82,6 +82,7 @@ test:
 resources: gen-resources \
 	gen-resources/level01.dat \
 	gen-resources/level02.dat \
+	gen-resources/level03.dat \
 	gen-resources/ship.dat \
 	gen-resources/ship-collider.dat
 
