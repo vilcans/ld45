@@ -73,9 +73,10 @@ impl MainState {
         // Ship
 
         let f = ggez::filesystem::open(ctx, "/ship.dat")?;
-        let ship_meshes = load_meshes(
+        let raw_ship_meshes = load_meshes(ctx, f)?;
+        let ship_meshes = create_drawables(
             ctx,
-            f,
+            &raw_ship_meshes,
             Color::from_rgb_u32(FILL_COLOR),
             Color::from_rgb_u32(SHIP_COLOR),
         )?;
@@ -93,9 +94,10 @@ impl MainState {
         // Level
 
         let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
-        let level_meshes = load_meshes(
+        let raw_level_meshes = load_meshes(ctx, f)?;
+        let level_meshes = create_drawables(
             ctx,
-            f,
+            &raw_level_meshes,
             Color::from_rgb_u32(FILL_COLOR),
             Color::from_rgb_u32(WALL_COLOR),
         )?;
@@ -282,19 +284,21 @@ struct RawMeshes {
     polygons: Vec<Vec<(f32, f32)>>,
 }
 
-fn load_meshes(
+fn load_meshes(_ctx: &mut Context, mut file: File) -> GameResult<RawMeshes> {
+    let mut encoded = Vec::<u8>::new();
+    file.read_to_end(&mut encoded).unwrap();
+    let m: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
+    Ok(m)
+}
+
+fn create_drawables(
     ctx: &mut Context,
-    mut file: File,
+    raw_meshes: &RawMeshes,
     fill_color: graphics::Color,
     line_color: graphics::Color,
 ) -> GameResult<Vec<graphics::Mesh>> {
-    let mut encoded = Vec::<u8>::new();
-    file.read_to_end(&mut encoded).unwrap();
-
-    let raw_meshes: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
-
     let mut meshes = Vec::<graphics::Mesh>::new();
-    for polygon in raw_meshes.polygons {
+    for polygon in raw_meshes.polygons.iter() {
         let points: Vec<Point2<f32>> = polygon
             .iter()
             .map(|(x, y)| Point2::<f32>::new(*x, *y))
