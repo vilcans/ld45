@@ -180,7 +180,7 @@ impl MainState {
         );
 
         // Print collision map
-        if true {
+        if false {
             for y in 0..32 {
                 for x in 0..32 {
                     let bit = collision_map
