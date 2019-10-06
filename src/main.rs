@@ -12,6 +12,8 @@ use ggez::nalgebra::Point2;
 use ggez::nalgebra::Vector2;
 
 use ggez;
+use ggez::audio;
+use ggez::audio::SoundSource;
 use ggez::conf;
 use ggez::event;
 use ggez::filesystem::File;
@@ -258,10 +260,16 @@ struct MainState {
     font: graphics::Font,
     ui_text: Option<graphics::Text>,
     level: Option<LevelState>,
+    _ambient: audio::Source,
 }
 
 impl MainState {
     fn new(ctx: &mut Context, starting_level: u32) -> GameResult<MainState> {
+        // Audio
+        let mut ambient = audio::Source::new(ctx, "/music.ogg").unwrap();
+        let _ = ambient.play_detached();
+        ambient.set_repeat(true);
+
         // Text
 
         let font = graphics::Font::new(ctx, "/font/font.ttf")?;
@@ -300,6 +308,7 @@ impl MainState {
             font,
             ui_text: None,
             level: Some(level),
+            _ambient: ambient,
         })
     }
 
