@@ -131,10 +131,10 @@ struct MainState {
 }
 
 impl MainState {
-    fn new(ctx: &mut Context) -> GameResult<MainState> {
+    fn new(ctx: &mut Context, level: u32) -> GameResult<MainState> {
         // Level
 
-        let f = ggez::filesystem::open(ctx, "/level01.dat")?;
+        let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level))?;
         let raw_level_meshes = load_meshes(ctx, f)?;
         let level_meshes = create_drawables(
             ctx,
@@ -522,6 +522,13 @@ fn create_drawables(
 }
 
 pub fn main() -> GameResult {
+    let args: Vec<String> = env::args().collect();
+    let starting_level: u32 = if args.len() == 2 {
+        args[1].parse::<u32>().unwrap_or(1)
+    } else {
+        1
+    };
+
     let mut builder = ggez::ContextBuilder::new("Ludum Dare 45", "Martin Vilcans");
 
     if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
@@ -536,6 +543,6 @@ pub fn main() -> GameResult {
     builder = builder.window_setup(conf::WindowSetup::default().title("Ludum Dare 45"));
 
     let (ctx, event_loop) = &mut builder.build()?;
-    let state = &mut MainState::new(ctx)?;
+    let state = &mut MainState::new(ctx, starting_level)?;
     event::run(ctx, event_loop, state)
 }
