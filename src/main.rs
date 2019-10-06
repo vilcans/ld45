@@ -69,15 +69,27 @@ struct Ship {
     angle: f32,
     angular_velocity: f32,
     thrust: f32,
-    polygons: RawMeshes,
-    meshes: Vec<graphics::Mesh>,
+
     alive: bool,
     dead_time: f32,
     turning_enabled: bool,
     thrust_enabled: bool,
+
+    polygons: RawMeshes,
+    meshes: Vec<graphics::Mesh>,
 }
 
 impl Ship {
+    fn reset(&mut self, position: Point2<f32>) {
+        self.position = position;
+        self.velocity = Vector2::new(0.0, 0.0);
+        self.angular_velocity = 0.0;
+        self.thrust = 0.0;
+        self.angle = std::f32::consts::FRAC_PI_2;
+        self.alive = true;
+        self.dead_time = 0.0;
+    }
+
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.angular_velocity = 0.0;
         self.thrust = 0.0;
@@ -403,6 +415,11 @@ impl MainState {
         text.set_font(self.font, graphics::Scale::uniform(FONT_SIZE));
         self.ui_text = Some(text);
     }
+
+    fn restart_level(&mut self) {
+        self.ship
+            .reset(self.level.as_ref().unwrap().get_spawn_position());
+    }
 }
 
 impl event::EventHandler for MainState {
@@ -413,8 +430,7 @@ impl event::EventHandler for MainState {
                 self.ui_text = None;
                 if !self.ship.alive {
                     // It's the game over text
-                    //self.restart_level();
-                    std::process::exit(0);
+                    self.restart_level();
                 }
             } else {
                 timer::sleep(timer::f64_to_duration(0.01));
