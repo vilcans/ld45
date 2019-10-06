@@ -262,6 +262,7 @@ struct MainState {
     level: Option<LevelState>,
     _ambient: audio::Source,
     ping: audio::Source,
+    thrust_sound: audio::Source,
 }
 
 impl MainState {
@@ -271,7 +272,10 @@ impl MainState {
         let _ = ambient.play_detached();
         ambient.set_repeat(true);
 
-        let mut ping = audio::Source::new(ctx, "/ping.ogg").unwrap();
+        let ping = audio::Source::new(ctx, "/ping.ogg").unwrap();
+        let mut thrust_sound = audio::Source::new(ctx, "/thrust.wav").unwrap();
+        thrust_sound.set_volume(0.0);
+        thrust_sound.set_repeat(true);
 
         // Text
 
@@ -313,6 +317,7 @@ impl MainState {
             level: Some(level),
             _ambient: ambient,
             ping,
+            thrust_sound,
         })
     }
 
@@ -457,6 +462,20 @@ impl event::EventHandler for MainState {
                 self.execute_trigger(ctx, trigger_id)?;
             }
         }
+
+        let thrust_volume = if self.ship.alive {
+            if self.ui_text.is_none() {
+                self.ship.thrust * 0.60 / THRUST
+            } else {
+                self.ship.thrust * 0.45 / THRUST
+            }
+        } else {
+            0.0
+        };
+        println!("volume {}", thrust_volume);
+        self.thrust_sound.set_volume(thrust_volume);
+        self.thrust_sound.play_later()?;
+
         // There must be a better way to make sure we waste the time?
         while timer::check_update_time(ctx, TICKS_PER_SECOND) {}
         Ok(())
