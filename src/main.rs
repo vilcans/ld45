@@ -68,6 +68,8 @@ struct MainState {
     ship: Ship,
     level_meshes: Vec<graphics::Mesh>,
     collision_map: BitVec,
+    font: graphics::Font,
+    ui_text: Option<graphics::Text>,
 }
 
 impl MainState {
@@ -157,10 +159,20 @@ impl MainState {
 
         graphics::set_canvas(ctx, None);
 
+        // Text
+
+        let font = graphics::Font::new(ctx, "/font/font.ttf")?;
+
         let s = MainState {
             ship,
             level_meshes,
             collision_map,
+            font,
+            ui_text: {
+                let mut text = graphics::Text::new("What's this? What happened? Am I falling?");
+                text.set_font(font, graphics::Scale::uniform(40.0));
+                Some(text)
+            },
         };
         Ok(s)
     }
@@ -231,8 +243,20 @@ impl Ship {
 
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        let ui_displayed = self.ui_text.is_some();
+        if ui_displayed {
+            if input::keyboard::is_key_pressed(ctx, KeyCode::Return) {
+                self.ui_text = None;
+            } else {
+                timer::sleep(timer::f64_to_duration(0.01));
+            }
+        }
+
         self.ship.update(ctx)?;
         while timer::check_update_time(ctx, TICKS_PER_SECOND) {
+            if ui_displayed {
+                continue;
+            }
             self.ship.tick(ctx)?;
 
             if self.ship.alive {
@@ -264,9 +288,10 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, graphics::Color::from_rgb_u32(BACKGROUND_COLOR));
+
         let camera_position = self.ship.position;
-        //let camera_position = Vector2::new(0.0, 0.0);
-        {
+
+        let (world_draw_rect, ui_draw_rect) = {
             let (win_width, win_height) = graphics::drawable_size(ctx);
             let aspect = if win_height != 0.0 {
                 win_width / win_height
@@ -275,12 +300,16 @@ impl event::EventHandler for MainState {
             };
             let height = VISIBLE_HEIGHT;
             let width = height * aspect;
-            let mut rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
-            rect.translate(Vector2::new(camera_position.x, camera_position.y));
-            graphics::set_screen_coordinates(ctx, rect)?;
-        }
+            let mut world_rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
+            world_rect.translate(Vector2::new(camera_position.x, camera_position.y));
+
+            let ui_rect = graphics::Rect::new(0.0, 0.0, 800.0, 800.0 * win_height / win_width);
+            (world_rect, ui_rect)
+        };
 
         let draw_param = graphics::DrawParam::default();
+
+        graphics::set_screen_coordinates(ctx, world_draw_rect)?;
 
         // Draw level
         for mesh in &self.level_meshes {
@@ -295,6 +324,18 @@ impl event::EventHandler for MainState {
             for mesh in &self.ship.meshes {
                 graphics::draw(ctx, mesh, ship_draw_param)?;
             }
+        }
+
+        // Draw UI
+
+        graphics::set_screen_coordinates(ctx, ui_draw_rect)?;
+
+        if let Some(text) = self.ui_text.as_ref() {
+            graphics::draw(
+                ctx,
+                text,
+                draw_param.color(graphics::Color::from_rgb_u32(0x00ff00)),
+            )?;
         }
 
         graphics::present(ctx)?;
