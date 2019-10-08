@@ -23,5 +23,12 @@ if [ "$TRAVIS_OS_NAME" == 'windows' ]; then
 
 else
     # osx and linux
+
+    # For releases, we have gen-resources checked in.
+    # Make those files newer than their source files.
+    if [ -d gen-resources ]; then
+        echo 'Make files in gen-resources up to date'
+        touch gen-resources/*
+    fi
     make release
 fi
