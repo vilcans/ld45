@@ -11,6 +11,7 @@ from math import *
 
 def convert(objects, *, include, exclude):
     polygons = []
+    triggers = {}
 
     for obj in objects:
         if obj.type != 'MESH':
@@ -21,6 +22,20 @@ def convert(objects, *, include, exclude):
             continue
 
         mat = obj.matrix_world
+
+        bounds = [mat @ Vector(c) for c in obj.bound_box]
+        min_x = min(c[0] for c in bounds)
+        max_x = max(c[0] for c in bounds)
+        min_z = min(c[2] for c in bounds)
+        max_z = max(c[2] for c in bounds)
+
+        if obj.name.startswith('Trigger_'):
+            _, s = obj.name.split('_', 1)
+            trigger_id = int(s, 0)
+            if trigger_id in triggers:
+                raise RuntimeError('Duplicate trigger: %s' % trigger_id)
+            triggers[trigger_id] = (min_x, max_x, min_z, max_z)
+
         mesh = obj.to_mesh()
 
         for poly in mesh.polygons:
@@ -34,17 +49,25 @@ def convert(objects, *, include, exclude):
 
             polygons.append(vertices)
 
-    return polygons
+    return polygons, triggers
 
 
-def export(polygons, out):
-    # bincode uses 64 bit values for vector length
-    out.write(struct.pack('<II', len(polygons), 0))
+def write_usize(out, value):
+    # bincode uses 64 bit values for vector length, hence the filler high dword
+    out.write(struct.pack('<II', value, 0))
+
+
+def export(polygons, triggers, out):
+    write_usize(out, len(polygons))
     for polygon in polygons:
         vertices = polygon
-        out.write(struct.pack('<II', len(vertices), 0))
+        write_usize(out, len(vertices))
         for v in vertices:
             out.write(struct.pack('ff', v[0], v[2]))
+
+    write_usize(out, len(triggers))
+    for trigger_id, bounds in triggers.items():
+        out.write(struct.pack('<Iffff', trigger_id, *bounds))
 
 
 def main(args):
@@ -56,21 +79,21 @@ def main(args):
         help='Save mesh data to this file'
     )
     parser.add_argument(
-        '--exclude', nargs='*', default=[],
+        '--exclude', action='append',
         help='Exclude object with this name'
     )
     parser.add_argument(
-        '--include', nargs='*', default=None,
+        '--include', action='append', default=None,
         help='Include only objects with these names'
     )
     args = parser.parse_args(args=args)
 
-    polygons = convert(C.scene.objects, exclude=args.exclude,
-                       include=args.include)
+    polygons, triggers = convert(C.scene.objects, exclude=args.exclude or [],
+                                 include=args.include)
 
     with open(args.out, 'wb') as out:
         print('Writing', args.out)
-        export(polygons, out)
+        export(polygons, triggers, out)
 
 
 i = sys.argv.index('--')

@@ -3,11 +3,17 @@
 use serde::Deserialize;
 use std::io::Read;
 
+use bit_vec::BitVec;
+use std::collections::{HashMap, HashSet};
+
 //use cgmath;
+use ggez::nalgebra;
 use ggez::nalgebra::Point2;
 use ggez::nalgebra::Vector2;
 
 use ggez;
+use ggez::audio;
+use ggez::audio::SoundSource;
 use ggez::conf;
 use ggez::event;
 use ggez::filesystem::File;
@@ -21,6 +27,8 @@ use ggez::{Context, GameResult};
 use std::env;
 use std::path;
 
+const DEAD_TIMEOUT: f32 = 1.5;
+
 const TICKS_PER_SECOND: u32 = 60;
 const TICK_TIME: f32 = 1.0 / TICKS_PER_SECOND as f32;
 
@@ -31,13 +39,25 @@ const ENERGY_CONSERVATION: f32 = 0.6;
 
 const SHIP_COLOR: u32 = 0x91e2db;
 
-const VISIBLE_HEIGHT: f32 = 200.0;
+const VISIBLE_HEIGHT: f32 = 300.0;
 
 const STROKE_WIDTH: f32 = 1.0;
 
 const FILL_COLOR: u32 = 0x000000;
 const WALL_COLOR: u32 = 0x2ca693;
 const BACKGROUND_COLOR: u32 = 0x023f3c;
+
+const FONT_SIZE: f32 = 28.0;
+
+const LEVEL_EXTENTS: graphics::Rect = graphics::Rect {
+    x: -500.0,
+    y: -1000.0,
+    w: 1000.0,
+    h: 2000.0,
+};
+
+const COLLISION_MAP_WIDTH: u32 = 1024;
+const COLLISION_MAP_HEIGHT: u32 = 2048;
 
 struct Ship {
     position: Point2<f32>,
@@ -46,65 +66,58 @@ struct Ship {
     angle: f32,
     angular_velocity: f32,
     thrust: f32,
+
+    alive: bool,
+    dead_time: f32,
+    turning_enabled: bool,
+    thrust_enabled: bool,
+
+    polygons: RawMeshes,
     meshes: Vec<graphics::Mesh>,
 }
 
-struct MainState {
-    ship: Ship,
-    level_meshes: Vec<graphics::Mesh>,
-}
-
-impl MainState {
-    fn new(ctx: &mut Context) -> GameResult<MainState> {
-        let f = ggez::filesystem::open(ctx, "/ship.dat")?;
-        let ship_meshes = load_meshes(
-            ctx,
-            f,
-            Color::from_rgb_u32(FILL_COLOR),
-            Color::from_rgb_u32(SHIP_COLOR),
-        )?;
-
-        let ship = Ship {
-            position: Point2::new(0.0, 0.0),
-            velocity: Vector2::new(0.0, 0.0),
-            angle: std::f32::consts::FRAC_PI_2,
-            angular_velocity: 0.0,
-            thrust: 0.0,
-            meshes: ship_meshes,
-        };
-
-        let f = ggez::filesystem::open(ctx, "/mesh.dat")?;
-        let level_meshes = load_meshes(
-            ctx,
-            f,
-            Color::from_rgb_u32(FILL_COLOR),
-            Color::from_rgb_u32(WALL_COLOR),
-        )?;
-
-        let s = MainState { ship, level_meshes };
-        Ok(s)
-    }
-}
-
 impl Ship {
+    fn reset(&mut self, position: Point2<f32>) {
+        self.position = position;
+        self.velocity = Vector2::new(0.0, 0.0);
+        self.angular_velocity = 0.0;
+        self.thrust = 0.0;
+        self.angle = std::f32::consts::FRAC_PI_2;
+        self.alive = true;
+        self.dead_time = 0.0;
+    }
+
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.angular_velocity = 0.0;
-        if input::keyboard::is_key_pressed(ctx, KeyCode::A) {
-            self.angular_velocity += TURN_SPEED;
-        }
-        if input::keyboard::is_key_pressed(ctx, KeyCode::D) {
-            self.angular_velocity -= TURN_SPEED;
-        }
+        self.thrust = 0.0;
 
-        self.thrust = if input::keyboard::is_key_pressed(ctx, KeyCode::W) {
-            THRUST
-        } else {
-            0.0
-        };
+        if self.alive {
+            if self.turning_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::A)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Left))
+            {
+                self.angular_velocity += TURN_SPEED;
+            }
+            if self.turning_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::D)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Right))
+            {
+                self.angular_velocity -= TURN_SPEED;
+            }
+            if self.thrust_enabled
+                && (input::keyboard::is_key_pressed(ctx, KeyCode::W)
+                    || input::keyboard::is_key_pressed(ctx, KeyCode::Up))
+            {
+                self.thrust = THRUST;
+            }
+        }
         Ok(())
     }
 
     fn tick(&mut self, _ctx: &mut Context) -> GameResult {
+        if !self.alive {
+            return Ok(());
+        }
         self.angle =
             (self.angle + self.angular_velocity * TICK_TIME) % (std::f32::consts::PI * 2.0);
 
@@ -118,20 +131,402 @@ impl Ship {
     }
 }
 
+struct LevelState {
+    level_number: u32,
+    level_meshes: Vec<graphics::Mesh>,
+    collision_map: BitVec,
+    triggers: HashMap<u32, Trigger>,
+    shown_triggers: HashSet<u32>,
+}
+
+impl LevelState {
+    fn get_spawn_position(&self) -> Point2<f32> {
+        // The spawn position is a "trigger" with ID 0
+        let spawn_trigger = self.triggers.get(&0u32).unwrap();
+        Point2::new(
+            (spawn_trigger.min_x + spawn_trigger.max_x) * 0.5,
+            (spawn_trigger.min_y + spawn_trigger.max_y) * 0.5,
+        )
+    }
+
+    fn get_collision(&self, position: Point2<f32>) -> bool {
+        if let Some(i) = LevelState::get_collider_map_index(position) {
+            return self.collision_map[i];
+        }
+        return false;
+    }
+
+    fn get_collider_map_index(position: Point2<f32>) -> Option<usize> {
+        let r = ((position.y - LEVEL_EXTENTS.top()) * COLLISION_MAP_HEIGHT as f32 / LEVEL_EXTENTS.h)
+            .round() as i32;
+        if r < 0 || r >= COLLISION_MAP_HEIGHT as i32 {
+            println!("Point is outside: {:?} collision row {}", position, r);
+            return None;
+        }
+        let r = r as u32;
+
+        let c = ((position.x - LEVEL_EXTENTS.left()) * COLLISION_MAP_WIDTH as f32 / LEVEL_EXTENTS.w)
+            .round() as i32;
+        if c < 0 || c >= COLLISION_MAP_WIDTH as i32 {
+            println!("Point is outside: {:?} collision column {}", position, c);
+            return None;
+        }
+        let c = c as u32;
+
+        return Some(((COLLISION_MAP_HEIGHT - 1 - r) * COLLISION_MAP_WIDTH + c) as usize);
+    }
+}
+
+fn load_level(ctx: &mut Context, level_number: u32) -> GameResult<LevelState> {
+    // Level
+
+    let f = ggez::filesystem::open(ctx, format!("/level{:02}.dat", level_number))?;
+    let raw_level_meshes = load_meshes(ctx, f)?;
+    let level_meshes = create_drawables(
+        ctx,
+        &raw_level_meshes,
+        Color::from_rgb_u32(FILL_COLOR),
+        Color::from_rgb_u32(WALL_COLOR),
+    )?;
+
+    let triggers: HashMap<u32, Trigger> = raw_level_meshes
+        .triggers
+        .iter()
+        .map(|t| (t.id, *t))
+        .collect();
+
+    // Render collision map
+
+    let canvas = graphics::Canvas::new(
+        ctx,
+        COLLISION_MAP_WIDTH as u16,
+        COLLISION_MAP_HEIGHT as u16,
+        conf::NumSamples::One,
+    )?;
+
+    graphics::set_canvas(ctx, Some(&canvas));
+    graphics::clear(ctx, [0.0, 0.0, 0.0, 0.0].into());
+    graphics::set_screen_coordinates(ctx, LEVEL_EXTENTS)?;
+
+    let draw_param = graphics::DrawParam::default();
+    for mesh in &level_meshes {
+        graphics::draw(ctx, mesh, draw_param)?;
+    }
+    graphics::present(ctx)?;
+
+    let image = canvas.into_inner();
+    let pixels = image.to_rgba8(ctx)?;
+    assert!(pixels.len() == (COLLISION_MAP_WIDTH * COLLISION_MAP_HEIGHT * 4) as usize);
+    let collision_map = BitVec::from_fn(
+        COLLISION_MAP_WIDTH as usize * COLLISION_MAP_HEIGHT as usize,
+        |i| {
+            let a = pixels[i * 4 + 3];
+            a >= 0x80
+        },
+    );
+
+    // Print collision map
+    if false {
+        for y in 0..32 {
+            for x in 0..32 {
+                let bit = collision_map
+                    .get(
+                        ((y * COLLISION_MAP_HEIGHT / 32) * COLLISION_MAP_WIDTH
+                            + (x * COLLISION_MAP_WIDTH / 32)) as usize,
+                    )
+                    .unwrap();
+                print!("{}", if bit { 'X' } else { '.' });
+            }
+            println!();
+        }
+    }
+
+    graphics::set_canvas(ctx, None);
+
+    Ok(LevelState {
+        level_number,
+        level_meshes,
+        collision_map,
+        triggers,
+        shown_triggers: HashSet::new(),
+    })
+}
+
+struct MainState {
+    ship: Ship,
+    font: graphics::Font,
+    ui_text: Option<graphics::Text>,
+    level: Option<LevelState>,
+    wanted_level: u32,
+    _ambient: audio::Source,
+    ping: audio::Source,
+    thrust_sound: audio::Source,
+    explosion_sound: audio::Source,
+}
+
+impl MainState {
+    fn new(ctx: &mut Context, starting_level: u32) -> GameResult<MainState> {
+        // Audio
+        let mut ambient = audio::Source::new(ctx, "/music.ogg").unwrap();
+        let _ = ambient.play_detached();
+        ambient.set_repeat(true);
+
+        let ping = audio::Source::new(ctx, "/ping.ogg").unwrap();
+        let mut thrust_sound = audio::Source::new(ctx, "/thrust.wav").unwrap();
+        thrust_sound.set_volume(0.0);
+        thrust_sound.set_repeat(true);
+        let explosion_sound = audio::Source::new(ctx, "/explosion.ogg").unwrap();
+
+        // Text
+
+        let font = graphics::Font::new(ctx, "/font/font.ttf")?;
+
+        // Ship
+
+        let f = ggez::filesystem::open(ctx, "/ship.dat")?;
+        let ship_polygons = load_meshes(ctx, f)?;
+        let ship_meshes = create_drawables(
+            ctx,
+            &ship_polygons,
+            Color::from_rgb_u32(FILL_COLOR),
+            Color::from_rgb_u32(SHIP_COLOR),
+        )?;
+
+        let f = ggez::filesystem::open(ctx, "/ship-collider.dat")?;
+        let collider_polygons = load_meshes(ctx, f)?;
+
+        let level = load_level(ctx, starting_level)?;
+        let ship = Ship {
+            position: level.get_spawn_position(),
+            velocity: Vector2::new(0.0, 0.0),
+            angle: std::f32::consts::FRAC_PI_2,
+            angular_velocity: 0.0,
+            thrust: 0.0,
+            polygons: collider_polygons,
+            meshes: ship_meshes,
+            alive: true,
+            dead_time: 0.0,
+            thrust_enabled: starting_level != 1,
+            turning_enabled: starting_level != 1,
+        };
+
+        Ok(MainState {
+            ship,
+            font,
+            ui_text: None,
+            level: Some(level),
+            wanted_level: starting_level,
+            _ambient: ambient,
+            ping,
+            thrust_sound,
+            explosion_sound,
+        })
+    }
+
+    fn update_during_play(&mut self, ctx: &mut Context) -> GameResult<Option<u32>> {
+        let level = self.level.as_ref().unwrap();
+
+        let mut hit_trigger = None;
+
+        self.ship.update(ctx)?;
+        while timer::check_update_time(ctx, TICKS_PER_SECOND) && hit_trigger.is_none() {
+            self.ship.tick(ctx)?;
+
+            if self.ship.alive {
+                let ship_transform = nalgebra::Isometry2::new(
+                    Vector2::new(self.ship.position.x, self.ship.position.y),
+                    self.ship.angle,
+                );
+                //println!("Ship transform: {}", ship_transform);
+
+                let mut collided = false;
+                for poly in self.ship.polygons.polygons.iter() {
+                    for &(x, y) in poly.iter() {
+                        let point = ship_transform * Point2::new(x, y);
+                        let hit = level.get_collision(point.into());
+                        if hit {
+                            //println!("Collided at {}", point);
+                            collided = true;
+                        }
+                    }
+                }
+
+                if collided {
+                    self.ship.alive = false;
+                    let _ = self.explosion_sound.play();
+                } else {
+                    for (&trigger_id, trigger) in level.triggers.iter() {
+                        if trigger.min_x <= self.ship.position.x
+                            && self.ship.position.x < trigger.max_x
+                            && trigger.min_y <= self.ship.position.y
+                            && self.ship.position.y < trigger.max_y
+                            && !level.shown_triggers.contains(&trigger_id)
+                        {
+                            println!("In trigger {}: {}", trigger_id, self.ship.position);
+                            hit_trigger = Some(trigger_id);
+                            break;
+                        }
+                    }
+                }
+            } else {
+                self.ship.dead_time += TICK_TIME;
+            }
+        }
+        if !self.ship.alive && self.ship.dead_time >= DEAD_TIMEOUT {
+            self.show_text(ctx, "Ouch! ... I wonder why that felt familiar.");
+        }
+        Ok(hit_trigger)
+    }
+
+    fn execute_trigger(&mut self, ctx: &mut Context, trigger_id: u32) -> GameResult {
+        let level = self.level.as_mut().unwrap();
+        level.shown_triggers.insert(trigger_id);
+
+        let text: Option<String> = match (level.level_number, trigger_id) {
+            (_, 0) => {
+                // ignore hitting the spawn point
+                None
+            }
+            (1, 10) => {
+                Some("What's this? What happened? Am I falling?".to_string())
+            }
+            (1, 11) => {
+                Some("I'm in some kind of aircraft. Can I control it?".to_string())
+            }
+            (1, 12) => {
+                Some("Nothing. I'm going to crash!".to_string())
+            }
+            (1, 13) => {
+                self.ship.thrust_enabled = true;
+                Some("Wait! I feel it... Go up!".to_string())
+            }
+            (1, 14) => {
+                Some("Up! Up! Up!".to_string())
+            }
+            (1, 20) => {
+                self.ship.turning_enabled = true;
+                Some("I think I know how to turn left and right...".to_string())
+            }
+            (1, 21) => {
+                Some("This feels stangely natural. I should be a pilot!".to_string())
+            }
+            (1, 22) => {
+                self.wanted_level = 2;
+                Some("Maybe I am a pilot? I don't remember anything.".to_string())
+            }
+
+            // Level 2
+            (2, 9) => {
+                    Some("What am I doing here? I feel strange. Where are my arms?".to_string())
+            }
+            (2, 10) => {
+                Some("I remember something. A woman. That's all.".to_string())
+            }
+            (2, 11) => {
+                Some("Pilot training! I did pilot training!\nThousands of training missions. Millions even.".to_string())
+            }
+            (2, 12) => {
+                Some("Dogfights. Low altitude precision flight.\nHigh speed pursuits.\nBut I don't remember any people.".to_string())
+            }
+            (2, 13) => {
+                Some("That woman again! Is that a memory, a real memory?".to_string())
+            }
+            (2, 14) => {
+                self.wanted_level = 3;
+                Some("Mom?".to_string())
+            }
+
+            // Level 3
+            (3, 10) => { Some("Am I dreaming? I don't exist.\nOnly this ship is real.".to_string())}
+            (3, 11) => { Some("I am this ship.".to_string())}
+            (3, 12) => { Some("I have memories of something else.\nMom, why did you leave me?".to_string())}
+            (3, 13) => { Some("It was Christmas. After my birthday.\nWe were going to New York.".to_string())}
+            (3, 14) => { Some("The plane crash! Then darkness. Hearing nothing, feeling nothing.".to_string())}
+            (3, 15) => {
+                Some("Mom next to the bed.\n... signed me away.".to_string())
+            }
+            (3, 16) => {
+                self.wanted_level = 1;
+                Some("Out of content. Thanks for playing!".to_string())
+            }
+
+            _ => {
+                Some(
+                    format!(
+                        "Hit unknown trigger {} on level {:?}. This is a bug.",
+                        trigger_id, level.level_number
+                    ),
+                )
+            }
+        };
+        if let Some(text) = text {
+            self.show_text(ctx, &text);
+        }
+
+        Ok(())
+    }
+
+    fn show_text(&mut self, _ctx: &mut Context, t: &str) {
+        let _ = self.ping.play();
+        let mut text = graphics::Text::new(t);
+        text.set_font(self.font, graphics::Scale::uniform(FONT_SIZE));
+        self.ui_text = Some(text);
+    }
+
+    fn restart_level(&mut self) {
+        self.ship
+            .reset(self.level.as_ref().unwrap().get_spawn_position());
+    }
+}
+
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.ship.update(ctx)?;
-        while timer::check_update_time(ctx, TICKS_PER_SECOND) {
-            self.ship.tick(ctx)?;
+        let ui_displayed = self.ui_text.is_some();
+        if ui_displayed {
+            if input::keyboard::is_key_pressed(ctx, KeyCode::Return) {
+                self.ui_text = None;
+                if !self.ship.alive {
+                    // It's the game over text
+                    self.restart_level();
+                } else if self.wanted_level != self.level.as_ref().unwrap().level_number {
+                    self.level = Some(load_level(ctx, self.wanted_level)?);
+                    self.restart_level();
+                }
+            } else {
+                timer::sleep(timer::f64_to_duration(0.01));
+            }
         }
+
+        if !ui_displayed && self.level.is_some() {
+            let r = self.update_during_play(ctx)?;
+            if let Some(trigger_id) = r {
+                self.execute_trigger(ctx, trigger_id)?;
+            }
+        }
+
+        let thrust_volume = if self.ship.alive {
+            if self.ui_text.is_none() {
+                self.ship.thrust * 0.30 / THRUST
+            } else {
+                self.ship.thrust * 0.15 / THRUST
+            }
+        } else {
+            0.0
+        };
+        self.thrust_sound.set_volume(thrust_volume);
+        self.thrust_sound.play_later()?;
+
+        // There must be a better way to make sure we waste the time?
+        while timer::check_update_time(ctx, TICKS_PER_SECOND) {}
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, graphics::Color::from_rgb_u32(BACKGROUND_COLOR));
+
         let camera_position = self.ship.position;
-        //let camera_position = Vector2::new(0.0, 0.0);
-        {
+
+        let (world_draw_rect, ui_draw_rect) = {
             let (win_width, win_height) = graphics::drawable_size(ctx);
             let aspect = if win_height != 0.0 {
                 win_width / win_height
@@ -140,24 +535,44 @@ impl event::EventHandler for MainState {
             };
             let height = VISIBLE_HEIGHT;
             let width = height * aspect;
-            let mut rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
-            rect.translate(Vector2::new(camera_position.x, camera_position.y));
-            graphics::set_screen_coordinates(ctx, rect)?;
-        }
+            let mut world_rect = graphics::Rect::new(-width * 0.5, height * 0.5, width, -height);
+            world_rect.translate(Vector2::new(camera_position.x, camera_position.y));
+
+            let ui_rect = graphics::Rect::new(0.0, 0.0, 800.0, 800.0 * win_height / win_width);
+            (world_rect, ui_rect)
+        };
 
         let draw_param = graphics::DrawParam::default();
 
+        graphics::set_screen_coordinates(ctx, world_draw_rect)?;
+
         // Draw level
-        for mesh in &self.level_meshes {
-            graphics::draw(ctx, mesh, draw_param)?;
+        if let Some(level) = &self.level {
+            for mesh in &level.level_meshes {
+                graphics::draw(ctx, mesh, draw_param)?;
+            }
         }
 
         // Draw ship
-        let ship_draw_param = draw_param
-            .dest(self.ship.position)
-            .rotation(self.ship.angle);
-        for mesh in &self.ship.meshes {
-            graphics::draw(ctx, mesh, ship_draw_param)?;
+        if self.ship.alive {
+            let ship_draw_param = draw_param
+                .dest(self.ship.position)
+                .rotation(self.ship.angle);
+            for mesh in &self.ship.meshes {
+                graphics::draw(ctx, mesh, ship_draw_param)?;
+            }
+        }
+
+        // Draw UI
+
+        graphics::set_screen_coordinates(ctx, ui_draw_rect)?;
+
+        if let Some(text) = self.ui_text.as_ref() {
+            graphics::draw(
+                ctx,
+                text,
+                draw_param.color(graphics::Color::from_rgb_u32(0x00ff00)),
+            )?;
         }
 
         graphics::present(ctx)?;
@@ -165,24 +580,36 @@ impl event::EventHandler for MainState {
     }
 }
 
+#[derive(Deserialize, Debug, Copy, Clone)]
+struct Trigger {
+    id: u32,
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+}
+
 #[derive(Deserialize, Debug)]
 struct RawMeshes {
     polygons: Vec<Vec<(f32, f32)>>,
+    triggers: Vec<Trigger>,
 }
 
-fn load_meshes(
+fn load_meshes(_ctx: &mut Context, mut file: File) -> GameResult<RawMeshes> {
+    let mut encoded = Vec::<u8>::new();
+    file.read_to_end(&mut encoded).unwrap();
+    let m: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
+    Ok(m)
+}
+
+fn create_drawables(
     ctx: &mut Context,
-    mut file: File,
+    raw_meshes: &RawMeshes,
     fill_color: graphics::Color,
     line_color: graphics::Color,
 ) -> GameResult<Vec<graphics::Mesh>> {
-    let mut encoded = Vec::<u8>::new();
-    file.read_to_end(&mut encoded).unwrap();
-
-    let raw_meshes: RawMeshes = bincode::deserialize(&encoded[..]).unwrap();
-
     let mut meshes = Vec::<graphics::Mesh>::new();
-    for polygon in raw_meshes.polygons {
+    for polygon in raw_meshes.polygons.iter() {
         let points: Vec<Point2<f32>> = polygon
             .iter()
             .map(|(x, y)| Point2::<f32>::new(*x, *y))
@@ -214,6 +641,13 @@ fn load_meshes(
 }
 
 pub fn main() -> GameResult {
+    let args: Vec<String> = env::args().collect();
+    let starting_level: u32 = if args.len() == 2 {
+        args[1].parse::<u32>().unwrap_or(1)
+    } else {
+        1
+    };
+
     let mut builder = ggez::ContextBuilder::new("Ludum Dare 45", "Martin Vilcans");
 
     if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
@@ -228,6 +662,6 @@ pub fn main() -> GameResult {
     builder = builder.window_setup(conf::WindowSetup::default().title("Ludum Dare 45"));
 
     let (ctx, event_loop) = &mut builder.build()?;
-    let state = &mut MainState::new(ctx)?;
+    let state = &mut MainState::new(ctx, starting_level)?;
     event::run(ctx, event_loop, state)
 }

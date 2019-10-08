@@ -1,5 +1,5 @@
 PROJECT=ld45
-VERSION=0.3
+VERSION=0.6
 FILENAME=$(PROJECT)-$(VERSION)
 RELEASE_DIR=release/$(FILENAME)
 
@@ -21,7 +21,7 @@ endif
 all: resources
 
 run: resources
-	cargo run
+	cargo run -- $(LEVEL)
 
 release: release-$(PLATFORM)
 
@@ -79,19 +79,27 @@ test:
 # Resources
 
 .PHONY: resources
-resources: \
-	gen-resources/mesh.dat \
-	gen-resources/ship.dat
+resources: gen-resources \
+	gen-resources/level01.dat \
+	gen-resources/level02.dat \
+	gen-resources/level03.dat \
+	gen-resources/ship.dat \
+	gen-resources/ship-collider.dat
 
 gen-resources:
-	mkdir gen-resources
+	mkdir -p gen-resources
 
-gen-resources/mesh.dat: source-assets/mesh.blend bin/convert_mesh.py
+gen-resources/level%.dat: source-assets/level%.blend
 	rm -f $@
-	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --exclude=Ship $@
+	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --exclude=Ship --exclude=ShipCollider --exclude=Extents $@
 	@if [ ! -e $@ ]; then echo Not created: $@; exit 1; fi
 
 gen-resources/ship.dat: source-assets/mesh.blend bin/convert_mesh.py
 	rm -f $@
 	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --include=Ship $@
+	@if [ ! -e $@ ]; then echo Not created: $@; exit 1; fi
+
+gen-resources/ship-collider.dat: source-assets/mesh.blend bin/convert_mesh.py
+	rm -f $@
+	"$(BLENDER)" $< --background --python bin/convert_mesh.py -- --include=ShipCollider $@
 	@if [ ! -e $@ ]; then echo Not created: $@; exit 1; fi
