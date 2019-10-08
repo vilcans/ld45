@@ -19,7 +19,7 @@ if [ "$TRAVIS_OS_NAME" == 'windows' ]; then
     cargo build --release
     cp target/release/$PROJECT.exe $RELEASE_DIR
     mkdir -p release/public
-    (cd release && zip -r public/$(FILENAME)-win.zip $(FILENAME))
+    (cd release && zip -r public/$FILENAME-win.zip $FILENAME)
 
 else
     # osx and linux
