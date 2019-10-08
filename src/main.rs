@@ -445,7 +445,7 @@ impl MainState {
             (3, 15) => {
                 Some("Mom next to the bed.\n... signed me away.".to_string())
             }
-            (3, 20) => {
+            (3, 16) => {
                 self.wanted_level = 1;
                 Some("Out of content. Thanks for playing!".to_string())
             }
