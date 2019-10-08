@@ -8,7 +8,6 @@ rust:
 cache: cargo
 script:
   - ./.travis/build.sh
-  - make release
 deploy:
   edge: true
   provider: releases
