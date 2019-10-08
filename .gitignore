@@ -3,8 +3,6 @@
 
 /release
 
-/gen-resources
-
 .vscode/
 
 # Blender backup files
