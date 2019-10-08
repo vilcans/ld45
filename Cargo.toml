@@ -1,6 +1,6 @@
 [package]
 name = "ld45"
-version = "0.1.0"
+version = "0.6.1"
 authors = ["Martin Vilcans <martin@librador.com>"]
 edition = "2018"
 

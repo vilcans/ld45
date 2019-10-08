@@ -863,7 +863,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "ld45"
-version = "0.1.0"
+version = "0.6.1"
 dependencies = [
  "bincode 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bit-vec 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
