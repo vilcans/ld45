@@ -18,6 +18,8 @@ else
 	endif
 endif
 
+BLENDER ?= blender
+
 all: resources
 
 run: resources
